@@ -123,11 +123,60 @@ def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
     
     console.print()
     if all_passed:
-        console.print("[bold green]All tests passed![/bold green]\n")
+        console.print("[bold green]All connectivity tests passed![/bold green]\n")
     else:
-        console.print("[bold red]Some tests failed. Please check your configuration.[/bold red]\n")
+        console.print("[bold red]Some connectivity tests failed. Please check your configuration.[/bold red]\n")
     
     return all_passed
+
+
+def _run_memory_tests(config: Mem0ServerConfig) -> bool:
+    """Run actual mem0 memory add/search tests."""
+    import uuid
+    console.print("[bold]Running memory tests...[/bold]\n")
+    
+    test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
+    test_memory_text = "This is a test memory for connectivity verification."
+    
+    try:
+        console.print("  [dim]Initializing mem0 client...[/dim]", end=" ")
+        from mem0 import Memory
+        mem0_config = config.to_mem0_config()
+        memory = Memory.from_config(mem0_config)
+        console.print("[green]✓[/green]")
+        
+        console.print("  [dim]Adding test memory...[/dim]", end=" ")
+        add_result = memory.add(test_memory_text, user_id=test_user_id)
+        if add_result and add_result.get("results"):
+            first_result = add_result["results"][0]
+            memory_id = first_result.get("id") if first_result else None
+            if memory_id:
+                console.print(f"[green]✓ Added (id: {memory_id[:8]}...)[/green]")
+            else:
+                console.print("[green]✓ Added[/green]")
+        else:
+            console.print("[green]✓ Added[/green]")
+        
+        console.print("  [dim]Searching memories...[/dim]", end=" ")
+        search_result = memory.search("test memory verification", user_id=test_user_id, limit=5)
+        if search_result and search_result.get("results"):
+            console.print(f"[green]✓ Found {len(search_result['results'])} result(s)[/green]")
+        else:
+            console.print("[yellow]⚠ No results (may be expected for new setup)[/yellow]")
+        
+        console.print("  [dim]Cleaning up test data...[/dim]", end=" ")
+        memory.delete_all(user_id=test_user_id)
+        console.print("[green]✓ Cleaned[/green]")
+        
+        console.print()
+        console.print("[bold green]All memory tests passed![/bold green]\n")
+        return True
+        
+    except Exception as e:
+        console.print(f"[red]✗ Failed: {e}[/red]")
+        console.print()
+        console.print("[bold red]Memory test failed. Check your LLM/Embedder/VectorStore configuration.[/bold red]\n")
+        return False
 
 
 def version_callback(value: bool) -> None:
@@ -235,6 +284,8 @@ def serve(
     
     if test:
         if not _run_connectivity_tests(config):
+            raise typer.Exit(1)
+        if not _run_memory_tests(config):
             raise typer.Exit(1)
     
     # Start the server
