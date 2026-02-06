@@ -350,6 +350,46 @@ def serve(
 
 
 @app.command()
+def test(
+    config_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--config", "-c",
+            help="Path to configuration file (YAML or JSON).",
+            exists=True,
+        ),
+    ] = None,
+) -> None:
+    """Test connectivity and memory operations without starting server.
+    
+    Examples:
+        mem0-open-mcp test
+        mem0-open-mcp test --config ./my-config.yaml
+    """
+    loader = ConfigLoader(config_file)
+    config = loader.load()
+    
+    console.print(Panel.fit(
+        f"[bold green]mem0-open-mcp[/bold green] v{__version__}\n"
+        f"[dim]Configuration Test[/dim]",
+        border_style="green",
+    ))
+    
+    console.print("\n[bold]Configuration:[/bold]")
+    console.print(f"  LLM: [cyan]{config.llm.provider.value}[/cyan] / {config.llm.config.model}")
+    console.print(f"  Embedder: [cyan]{config.embedder.provider.value}[/cyan] / {config.embedder.config.model}")
+    console.print(f"  Vector Store: [cyan]{config.vector_store.provider.value}[/cyan]")
+    console.print()
+    
+    if not _run_connectivity_tests(config):
+        raise typer.Exit(1)
+    if not _run_memory_tests(config):
+        raise typer.Exit(1)
+    
+    console.print("[bold green]All tests passed! Configuration is ready.[/bold green]")
+
+
+@app.command()
 def configure(
     config_file: Annotated[
         Path | None,

@@ -39,17 +39,20 @@ mem0-open-mcp init
 # Interactive configuration wizard
 mem0-open-mcp configure
 
+# Test configuration (recommended for initial setup)
+mem0-open-mcp test
+
 # Start the server
 mem0-open-mcp serve
 
-# Test configuration before starting (recommended for initial setup)
+# Test and start server
 mem0-open-mcp serve --test
 
 # With options
 mem0-open-mcp serve --port 8765 --user-id alice
 ```
 
-The `--test` flag runs connectivity and memory tests before starting the server:
+The `test` command verifies your configuration without starting the server:
 - Checks Vector Store, LLM, and Embedder connections
 - Performs actual memory add/search operations
 - Cleans up test data automatically
