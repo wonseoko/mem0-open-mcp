@@ -77,13 +77,21 @@ def _check_for_updates() -> None:
 
 
 def _model_matches(config_model: str, available_models: list[str]) -> bool:
-    """Check if configured model matches any available model."""
-    config_base = config_model.split(":")[0].lower()
+    """Check if configured model matches any available model.
+    
+    Handles :latest suffix - 'llama3.2' matches 'llama3.2:latest'
+    """
+    config_lower = config_model.lower()
+    config_with_latest = f"{config_lower}:latest" if ":" not in config_lower else config_lower
+    
     for m in available_models:
-        available_base = m.split(":")[0].lower()
-        if config_base == available_base or config_model == m:
+        m_lower = m.lower()
+        if config_lower == m_lower:
             return True
-        if config_base in available_base or available_base in config_base:
+        if config_with_latest == m_lower:
+            return True
+        m_without_latest = m_lower.replace(":latest", "") if m_lower.endswith(":latest") else m_lower
+        if config_lower == m_without_latest:
             return True
     return False
 
