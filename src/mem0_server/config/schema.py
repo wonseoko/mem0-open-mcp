@@ -323,6 +323,7 @@ def get_default_config() -> Mem0ServerConfig:
             config=EmbedderConfig(
                 model="text-embedding-3-small",
                 api_key="env:OPENAI_API_KEY",
+                embedding_dims=1536,
             ),
         ),
         vector_store=VectorStoreProvider(
@@ -331,6 +332,7 @@ def get_default_config() -> Mem0ServerConfig:
                 collection_name="mem0_memories",
                 host="localhost",
                 port=6333,
+                embedding_model_dims=1536,
             ),
         ),
     )

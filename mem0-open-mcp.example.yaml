@@ -30,6 +30,10 @@ embedder:
   config:
     model: "text-embedding-3-small"
     api_key: "env:OPENAI_API_KEY"
+    # Embedding dimensions (must match vector_store.embedding_model_dims)
+    # OpenAI text-embedding-3-small: 1536
+    # Ollama nomic-embed-text: 768
+    embedding_dims: 1536
     # For Ollama:
     # base_url: "http://localhost:11434"
 
@@ -42,6 +46,8 @@ vector_store:
     collection_name: "mem0_memories"
     host: "localhost"
     port: 6333
+    # Must match embedder.embedding_dims
+    embedding_model_dims: 1536
     # For cloud services:
     # api_key: "env:QDRANT_API_KEY"
     # url: "https://your-cluster.qdrant.io"
