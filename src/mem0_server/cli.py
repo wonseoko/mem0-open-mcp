@@ -35,6 +35,14 @@ UPDATE_CHECK_CACHE = Path.home() / ".cache" / "mem0-open-mcp" / "update_check.js
 UPDATE_CHECK_INTERVAL = 86400  # 24 hours
 
 
+def _parse_version(v: str) -> tuple[int, ...]:
+    """Parse version string to tuple for comparison."""
+    try:
+        return tuple(int(x) for x in v.split(".")[:3])
+    except (ValueError, AttributeError):
+        return (0, 0, 0)
+
+
 def _check_for_updates() -> None:
     """Check PyPI for newer version (once per day)."""
     try:
@@ -44,9 +52,10 @@ def _check_for_updates() -> None:
         if UPDATE_CHECK_CACHE.exists():
             cache = json.loads(UPDATE_CHECK_CACHE.read_text())
             if now - cache.get("last_check", 0) < UPDATE_CHECK_INTERVAL:
-                if cache.get("latest") and cache["latest"] != __version__:
+                latest = cache.get("latest")
+                if latest and _parse_version(latest) > _parse_version(__version__):
                     console.print(
-                        f"[yellow]Update available: {__version__} → {cache['latest']}[/yellow]\n"
+                        f"[yellow]Update available: {__version__} → {latest}[/yellow]\n"
                         f"[dim]  pip install --upgrade mem0-open-mcp[/dim]\n"
                     )
                 return
@@ -58,7 +67,7 @@ def _check_for_updates() -> None:
         
         UPDATE_CHECK_CACHE.write_text(json.dumps({"last_check": now, "latest": latest}))
         
-        if latest != __version__:
+        if _parse_version(latest) > _parse_version(__version__):
             console.print(
                 f"[yellow]Update available: {__version__} → {latest}[/yellow]\n"
                 f"[dim]  pip install --upgrade mem0-open-mcp[/dim]\n"
