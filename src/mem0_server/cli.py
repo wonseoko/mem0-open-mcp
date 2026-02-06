@@ -220,15 +220,16 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         console.print("  [dim]1. Adding test memory...[/dim]", end=" ")
         add_result = memory.add(test_memory_text, user_id=test_user_id)
         memory_id = None
-        if add_result and add_result.get("results"):
+        if add_result and add_result.get("results") and len(add_result["results"]) > 0:
             first_result = add_result["results"][0]
             memory_id = first_result.get("id") if first_result else None
             if memory_id:
                 console.print(f"[green]✓ Added (id: {memory_id[:8]}...)[/green]")
             else:
-                console.print("[green]✓ Added[/green]")
+                console.print("[yellow]⚠ No memory extracted by LLM[/yellow]")
         else:
-            console.print("[green]✓ Added[/green]")
+            console.print("[yellow]⚠ No memory extracted by LLM[/yellow]")
+            console.print(f"    [dim]add_result: {add_result}[/dim]")
         
         # 2. List memories (with retry)
         console.print("  [dim]2. Listing memories...[/dim]", end=" ")
@@ -765,11 +766,11 @@ def status(
 @app.command()
 def init(
     path: Annotated[
-        Path,
+        Path | None,
         typer.Argument(
-            help="Path to create configuration file.",
+            help="Path to create configuration file. Defaults to ~/.config/mem0-open-mcp.yaml",
         ),
-    ] = Path("mem0-open-mcp.yaml"),
+    ] = None,
     force: Annotated[
         bool,
         typer.Option("--force", "-f", help="Overwrite existing file."),
@@ -782,15 +783,19 @@ def init(
         mem0-open-mcp init ./config.yaml
         mem0-open-mcp init --force
     """
-    if path.exists() and not force:
-        console.print(f"[red]File already exists: {path}[/red]")
+    default_path = Path.home() / ".mem0-open-mcp.yaml"
+    target_path = path if path else default_path
+    
+    if target_path.exists() and not force:
+        console.print(f"[red]File already exists: {target_path}[/red]")
         console.print("[dim]Use --force to overwrite[/dim]")
         raise typer.Exit(1)
     
-    saved_path = ConfigLoader.create_default_config_file(path)
-    console.print(f"[green]✓[/green] Created default configuration: [cyan]{saved_path}[/cyan]")
+    saved_path = ConfigLoader.create_default_config_file(target_path)
+    console.print(f"[green]✓[/green] Created configuration file:")
+    console.print(f"  [cyan]{saved_path.absolute()}[/cyan]")
     console.print("\n[dim]Edit the file to customize your settings, then run:[/dim]")
-    console.print(f"  [bold]mem0-open-mcp serve --config {saved_path}[/bold]")
+    console.print("  [bold]mem0-open-mcp serve[/bold]")
 
 
 if __name__ == "__main__":
