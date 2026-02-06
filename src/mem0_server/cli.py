@@ -76,6 +76,18 @@ def _check_for_updates() -> None:
         pass
 
 
+def _model_matches(config_model: str, available_models: list[str]) -> bool:
+    """Check if configured model matches any available model."""
+    config_base = config_model.split(":")[0].lower()
+    for m in available_models:
+        available_base = m.split(":")[0].lower()
+        if config_base == available_base or config_model == m:
+            return True
+        if config_base in available_base or available_base in config_base:
+            return True
+    return False
+
+
 def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
     """Run connectivity tests for LLM, Embedder, and Vector Store."""
     console.print("[bold]Running connectivity tests...[/bold]\n")
@@ -117,7 +129,7 @@ def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
             resp = httpx.get(f"{base_url}/api/tags", timeout=5)
             resp.raise_for_status()
             models = [m["name"] for m in resp.json().get("models", [])]
-            if llm_config.config.model in models or any(llm_config.config.model in m for m in models):
+            if _model_matches(llm_config.config.model, models):
                 console.print(f"[green]✓ Connected ({llm_config.config.model})[/green]")
             else:
                 console.print(f"[yellow]⚠ Connected but model '{llm_config.config.model}' not found[/yellow]")
@@ -147,7 +159,7 @@ def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
             resp = httpx.get(f"{base_url}/api/tags", timeout=5)
             resp.raise_for_status()
             models = [m["name"] for m in resp.json().get("models", [])]
-            if emb_config.config.model in models or any(emb_config.config.model in m for m in models):
+            if _model_matches(emb_config.config.model, models):
                 console.print(f"[green]✓ Connected ({emb_config.config.model})[/green]")
             else:
                 console.print(f"[yellow]⚠ Connected but model '{emb_config.config.model}' not found[/yellow]")
@@ -178,6 +190,7 @@ def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
 
 def _run_memory_tests(config: Mem0ServerConfig) -> bool:
     """Run actual mem0 memory add/search tests."""
+    import os
     import uuid
     console.print("[bold]Running memory tests...[/bold]\n")
     
@@ -186,6 +199,7 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
     
     try:
         console.print("  [dim]Initializing mem0 client...[/dim]", end=" ")
+        os.environ["MEM0_TELEMETRY"] = "false"
         from mem0 import Memory
         mem0_config = config.to_mem0_config()
         memory = Memory.from_config(mem0_config)
@@ -278,10 +292,6 @@ def serve(
         str,
         typer.Option("--log-level", "-l", help="Logging level."),
     ] = "info",
-    test: Annotated[
-        bool,
-        typer.Option("--test", "-t", help="Run connectivity tests before starting server."),
-    ] = False,
 ) -> None:
     """Start the MCP server.
     
@@ -329,12 +339,6 @@ def serve(
     console.print(f"  Embedder: [cyan]{config.embedder.provider.value}[/cyan] / {config.embedder.config.model}")
     console.print(f"  Vector Store: [cyan]{config.vector_store.provider.value}[/cyan]")
     console.print()
-    
-    if test:
-        if not _run_connectivity_tests(config):
-            raise typer.Exit(1)
-        if not _run_memory_tests(config):
-            raise typer.Exit(1)
     
     # Start the server
     try:

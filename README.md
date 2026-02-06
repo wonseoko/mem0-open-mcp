@@ -45,9 +45,6 @@ mem0-open-mcp test
 # Start the server
 mem0-open-mcp serve
 
-# Test and start server
-mem0-open-mcp serve --test
-
 # With options
 mem0-open-mcp serve --port 8765 --user-id alice
 ```
