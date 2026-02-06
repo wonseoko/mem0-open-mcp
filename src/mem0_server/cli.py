@@ -199,11 +199,14 @@ def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
 def _run_memory_tests(config: Mem0ServerConfig) -> bool:
     """Run actual mem0 memory add/search tests."""
     import os
+    import time
     import uuid
     console.print("[bold]Running memory tests...[/bold]\n")
     
     test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
     test_memory_text = "This is a test memory for connectivity verification."
+    max_retries = 20
+    retry_interval = 0.5
     
     try:
         console.print("  [dim]Initializing mem0 client...[/dim]", end=" ")
@@ -227,17 +230,23 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         else:
             console.print("[green]✓ Added[/green]")
         
-        # 2. List memories
+        # 2. List memories (with retry)
         console.print("  [dim]2. Listing memories...[/dim]", end=" ")
-        list_result = memory.get_all(user_id=test_user_id)
-        if list_result and list_result.get("results"):
-            stored_count = len(list_result["results"])
+        stored_count = 0
+        for attempt in range(max_retries):
+            list_result = memory.get_all(user_id=test_user_id)
+            if list_result and list_result.get("results"):
+                stored_count = len(list_result["results"])
+                if not memory_id and stored_count > 0:
+                    memory_id = list_result["results"][0].get("id")
+                break
+            if attempt < max_retries - 1:
+                time.sleep(retry_interval)
+        
+        if stored_count > 0:
             console.print(f"[green]✓ Found {stored_count} memory(s)[/green]")
-            # Get memory_id from list if not captured from add
-            if not memory_id and stored_count > 0:
-                memory_id = list_result["results"][0].get("id")
         else:
-            console.print("[red]✗ Memory not stored[/red]")
+            console.print(f"[red]✗ Memory not stored (waited 10s)[/red]")
             return False
         
         # 3. Search memories
@@ -248,21 +257,46 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         else:
             console.print("[yellow]⚠ No search results (indexing may be delayed)[/yellow]")
         
-        # 4. Delete single memory
+        # 4. Delete single memory (with retry verification)
         console.print("  [dim]4. Deleting single memory...[/dim]", end=" ")
         if memory_id:
-            delete_result = memory.delete(memory_id)
-            if delete_result and delete_result.get("message"):
+            memory.delete(memory_id)
+            # Verify deletion
+            deleted = False
+            for attempt in range(max_retries):
+                list_result = memory.get_all(user_id=test_user_id)
+                results = list_result.get("results", []) if list_result else []
+                if not any(m.get("id") == memory_id for m in results):
+                    deleted = True
+                    break
+                if attempt < max_retries - 1:
+                    time.sleep(retry_interval)
+            
+            if deleted:
                 console.print(f"[green]✓ Deleted (id: {memory_id[:8]}...)[/green]")
             else:
-                console.print("[green]✓ Deleted[/green]")
+                console.print("[yellow]⚠ Delete called but not confirmed after 10s[/yellow]")
         else:
             console.print("[yellow]⚠ Skipped (no memory_id)[/yellow]")
         
-        # 5. Cleanup remaining test data
+        # 5. Cleanup remaining test data (with retry verification)
         console.print("  [dim]5. Cleaning up test data...[/dim]", end=" ")
         memory.delete_all(user_id=test_user_id)
-        console.print("[green]✓ Cleaned[/green]")
+        # Verify cleanup
+        cleaned = False
+        for attempt in range(max_retries):
+            list_result = memory.get_all(user_id=test_user_id)
+            results = list_result.get("results", []) if list_result else []
+            if len(results) == 0:
+                cleaned = True
+                break
+            if attempt < max_retries - 1:
+                time.sleep(retry_interval)
+        
+        if cleaned:
+            console.print("[green]✓ Cleaned[/green]")
+        else:
+            console.print(f"[yellow]⚠ Cleanup called but not confirmed after {max_retries}s[/yellow]")
         
         console.print()
         console.print("[bold green]All memory tests passed![/bold green]\n")
