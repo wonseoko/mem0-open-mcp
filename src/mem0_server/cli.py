@@ -204,7 +204,7 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
     console.print("[bold]Running memory tests...[/bold]\n")
     
     test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
-    test_memory_text = "This is a test memory for connectivity verification."
+    test_memory_text = "My name is TestUser and I prefer dark mode. I work as a software engineer."
     max_retries = 20
     retry_interval = 0.5
     
