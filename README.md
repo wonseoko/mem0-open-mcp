@@ -2,7 +2,7 @@
 
 Open-source MCP server for [mem0](https://mem0.ai) — **local LLMs, self-hosted, Docker-free**.
 
-Unlike the official `mem0-mcp` (requires Mem0 cloud API), this runs entirely locally with your own LLMs and vector stores.
+Created because the official `mem0-mcp` configuration wasn't working properly for my setup.
 
 ## Features
 
@@ -13,16 +13,6 @@ Unlike the official `mem0-mcp` (requires Mem0 cloud API), this runs entirely loc
 - **Multiple Vector Stores**: Qdrant, Chroma, Pinecone, and more
 
 > *LMStudio requires JSON mode compatible models
-
-## Comparison
-
-| Feature | mem0-mcp (official) | mem0-open-mcp |
-|---------|---------------------|---------------|
-| LLM | Mem0 Cloud API only | Ollama, LMStudio, OpenAI, etc. |
-| API Key | Required (paid) | Optional |
-| Data Storage | Mem0 Cloud | Local (Qdrant, Chroma, etc.) |
-| Offline | No | Yes |
-| Docker | Required for self-host | Not required |
 
 ## Quick Start
 
