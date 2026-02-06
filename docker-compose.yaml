@@ -11,8 +11,8 @@ services:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
 
-  # mem0-server
-  mem0-server:
+  # mem0-open-mcp
+  mem0-open-mcp:
     build:
       context: .
       dockerfile: Dockerfile
@@ -23,7 +23,7 @@ services:
       # For Ollama, uncomment the following:
       # - OLLAMA_HOST=http://host.docker.internal:11434
     volumes:
-      - ./mem0-server.yaml:/app/mem0-server.yaml:ro
+      - ./mem0-open-mcp.yaml:/app/mem0-open-mcp.yaml:ro
     depends_on:
       - qdrant
     restart: unless-stopped

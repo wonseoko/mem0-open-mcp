@@ -15,7 +15,7 @@ COPY src/ ./src/
 RUN pip install --no-cache-dir -e .
 
 # Copy example config
-COPY mem0-server.example.yaml /app/mem0-server.yaml
+COPY mem0-open-mcp.example.yaml /app/mem0-open-mcp.yaml
 
 # Expose port
 EXPOSE 8765
@@ -25,5 +25,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8765/health || exit 1
 
 # Run server
-ENTRYPOINT ["mem0-server"]
-CMD ["serve", "--config", "/app/mem0-server.yaml"]
+ENTRYPOINT ["mem0-open-mcp"]
+CMD ["serve", "--config", "/app/mem0-open-mcp.yaml"]

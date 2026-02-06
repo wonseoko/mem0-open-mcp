@@ -31,7 +31,7 @@ class ConfigLoader:
         Path("mem0-open-mcp.yaml"),
         Path("mem0-open-mcp.yml"),
         Path("mem0-open-mcp.json"),
-        Path("mem0-server.yaml"),
+        Path("mem0-open-mcp.yaml"),
         Path("mem0-server.yml"),
         Path.home() / ".config" / "mem0-open-mcp" / "config.yaml",
         Path.home() / ".mem0-open-mcp.yaml",
@@ -119,7 +119,7 @@ class ConfigLoader:
         Returns:
             Path where config was saved.
         """
-        save_path = Path(path) if path else (self.config_path or Path("mem0-server.yaml"))
+        save_path = Path(path) if path else (self.config_path or Path("mem0-open-mcp.yaml"))
         
         # Ensure parent directory exists
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -214,12 +214,12 @@ class ConfigLoader:
         """Create a default configuration file.
         
         Args:
-            path: Path to create config at. Defaults to mem0-server.yaml in current dir.
+            path: Path to create config at. Defaults to mem0-open-mcp.yaml in current dir.
         
         Returns:
             Path where config was created.
         """
-        save_path = Path(path) if path else Path("mem0-server.yaml")
+        save_path = Path(path) if path else Path("mem0-open-mcp.yaml")
         loader = cls()
         config = get_default_config()
         return loader.save(config, save_path)

@@ -1,4 +1,4 @@
-"""CLI for mem0-server using Typer."""
+"""CLI for mem0-open-mcp using Typer."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from mem0_server.config import (
 )
 
 app = typer.Typer(
-    name="mem0-server",
+    name="mem0-open-mcp",
     help="Standalone MCP server for mem0 with web configuration UI.",
     add_completion=False,
 )
@@ -33,7 +33,7 @@ console = Console()
 def version_callback(value: bool) -> None:
     """Show version and exit."""
     if value:
-        console.print(f"[bold green]mem0-server[/bold green] version [cyan]{__version__}[/cyan]")
+        console.print(f"[bold green]mem0-open-mcp[/bold green] version [cyan]{__version__}[/cyan]")
         raise typer.Exit()
 
 
@@ -49,7 +49,7 @@ def main(
         ),
     ] = None,
 ) -> None:
-    """mem0-server: Standalone MCP server for mem0."""
+    """mem0-open-mcp: Standalone MCP server for mem0."""
     pass
 
 
@@ -87,9 +87,9 @@ def serve(
     """Start the MCP server.
     
     Examples:
-        mem0-server serve
-        mem0-server serve --port 8765 --user-id alice
-        mem0-server serve --config ./my-config.yaml
+        mem0-open-mcp serve
+        mem0-open-mcp serve --port 8765 --user-id alice
+        mem0-open-mcp serve --config ./my-config.yaml
     """
     # Load configuration
     loader = ConfigLoader(config_file)
@@ -115,7 +115,7 @@ def serve(
     
     # Display startup info
     console.print(Panel.fit(
-        f"[bold green]mem0-server[/bold green] v{__version__}\n"
+        f"[bold green]mem0-open-mcp[/bold green] v{__version__}\n"
         f"[dim]MCP server for mem0 memory management[/dim]",
         border_style="green",
     ))
@@ -135,7 +135,7 @@ def serve(
         run_server(config, loader)
     except ImportError as e:
         console.print(f"[red]Error starting server: {e}[/red]")
-        console.print("[yellow]Make sure all dependencies are installed: pip install mem0-server[/yellow]")
+        console.print("[yellow]Make sure all dependencies are installed: pip install mem0-open-mcp[/yellow]")
         raise typer.Exit(1) from None
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -161,15 +161,15 @@ def configure(
 ) -> None:
     """Interactive configuration wizard.
     
-    Creates or edits a mem0-server configuration file with guided prompts.
+    Creates or edits a mem0-open-mcp configuration file with guided prompts.
     
     Examples:
-        mem0-server configure
-        mem0-server configure --output ./my-config.yaml
-        mem0-server configure --config ./existing-config.yaml
+        mem0-open-mcp configure
+        mem0-open-mcp configure --output ./my-config.yaml
+        mem0-open-mcp configure --config ./existing-config.yaml
     """
     console.print(Panel.fit(
-        "[bold green]mem0-server Configuration Wizard[/bold green]\n"
+        "[bold green]mem0-open-mcp Configuration Wizard[/bold green]\n"
         "[dim]Configure your mem0 MCP server settings[/dim]",
         border_style="green",
     ))
@@ -339,13 +339,13 @@ def configure(
     # === Save Configuration ===
     console.print()
     
-    save_path = output or config_file or Path("mem0-server.yaml")
+    save_path = output or config_file or Path("mem0-open-mcp.yaml")
     
     if Confirm.ask(f"Save configuration to [cyan]{save_path}[/cyan]?", default=True):
         saved_path = loader.save(config, save_path)
         console.print(f"\n[green]✓[/green] Configuration saved to [cyan]{saved_path}[/cyan]")
         console.print("\n[dim]Start the server with:[/dim]")
-        console.print(f"  [bold]mem0-server serve --config {saved_path}[/bold]")
+        console.print(f"  [bold]mem0-open-mcp serve --config {saved_path}[/bold]")
     else:
         console.print("[yellow]Configuration not saved.[/yellow]")
 
@@ -364,15 +364,15 @@ def status(
     """Show current configuration and status.
     
     Examples:
-        mem0-server status
-        mem0-server status --config ./my-config.yaml
+        mem0-open-mcp status
+        mem0-open-mcp status --config ./my-config.yaml
     """
     # Load configuration
     loader = ConfigLoader(config_file)
     config = loader.load()
     
     console.print(Panel.fit(
-        "[bold green]mem0-server Status[/bold green]",
+        "[bold green]mem0-open-mcp Status[/bold green]",
         border_style="green",
     ))
     
@@ -438,7 +438,7 @@ def status(
     console.print(vs_table)
     
     # Connection test hint
-    console.print("\n[dim]Run 'mem0-server serve' to start the server[/dim]")
+    console.print("\n[dim]Run 'mem0-open-mcp serve' to start the server[/dim]")
 
 
 @app.command()
@@ -448,7 +448,7 @@ def init(
         typer.Argument(
             help="Path to create configuration file.",
         ),
-    ] = Path("mem0-server.yaml"),
+    ] = Path("mem0-open-mcp.yaml"),
     force: Annotated[
         bool,
         typer.Option("--force", "-f", help="Overwrite existing file."),
@@ -457,9 +457,9 @@ def init(
     """Create a default configuration file.
     
     Examples:
-        mem0-server init
-        mem0-server init ./config.yaml
-        mem0-server init --force
+        mem0-open-mcp init
+        mem0-open-mcp init ./config.yaml
+        mem0-open-mcp init --force
     """
     if path.exists() and not force:
         console.print(f"[red]File already exists: {path}[/red]")
@@ -469,7 +469,7 @@ def init(
     saved_path = ConfigLoader.create_default_config_file(path)
     console.print(f"[green]✓[/green] Created default configuration: [cyan]{saved_path}[/cyan]")
     console.print("\n[dim]Edit the file to customize your settings, then run:[/dim]")
-    console.print(f"  [bold]mem0-server serve --config {saved_path}[/bold]")
+    console.print(f"  [bold]mem0-open-mcp serve --config {saved_path}[/bold]")
 
 
 if __name__ == "__main__":
