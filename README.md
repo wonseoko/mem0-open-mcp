@@ -18,10 +18,14 @@ Created because the official `mem0-mcp` configuration wasn't working properly fo
 
 ### Installation
 
-Install from source:
+```bash
+pip install mem0-open-mcp
+```
+
+Or install from source:
 
 ```bash
-git clone https://github.com/yourname/mem0-open-mcp.git
+git clone https://github.com/wonseoko/mem0-open-mcp.git
 cd mem0-open-mcp
 pip install -e .
 ```
