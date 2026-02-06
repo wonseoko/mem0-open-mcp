@@ -783,7 +783,7 @@ def init(
         mem0-open-mcp init ./config.yaml
         mem0-open-mcp init --force
     """
-    default_path = Path.home() / ".mem0-open-mcp.yaml"
+    default_path = Path.home() / ".config" / "mem0-open-mcp.yaml"
     target_path = path if path else default_path
     
     if target_path.exists() and not force:

@@ -28,12 +28,12 @@ class ConfigLoader:
     """Load and save mem0-server configuration from various sources."""
     
     DEFAULT_CONFIG_PATHS = [
-        Path.home() / ".mem0-open-mcp.yaml",
+        Path.home() / ".config" / "mem0-open-mcp.yaml",
+        Path.home() / ".config" / "mem0-open-mcp.yml",
+        Path.home() / ".config" / "mem0-open-mcp.json",
         Path("mem0-open-mcp.yaml"),
         Path("mem0-open-mcp.yml"),
         Path("mem0-open-mcp.json"),
-        Path.home() / ".config" / "mem0-open-mcp" / "config.yaml",
-        Path("mem0-server.yml"),
     ]
     
     def __init__(self, config_path: Path | str | None = None):
