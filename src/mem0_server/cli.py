@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import time
 from pathlib import Path
 from typing import Annotated
 
@@ -28,6 +30,41 @@ app = typer.Typer(
 )
 
 console = Console()
+
+UPDATE_CHECK_CACHE = Path.home() / ".cache" / "mem0-open-mcp" / "update_check.json"
+UPDATE_CHECK_INTERVAL = 86400  # 24 hours
+
+
+def _check_for_updates() -> None:
+    """Check PyPI for newer version (once per day)."""
+    try:
+        UPDATE_CHECK_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        
+        now = time.time()
+        if UPDATE_CHECK_CACHE.exists():
+            cache = json.loads(UPDATE_CHECK_CACHE.read_text())
+            if now - cache.get("last_check", 0) < UPDATE_CHECK_INTERVAL:
+                if cache.get("latest") and cache["latest"] != __version__:
+                    console.print(
+                        f"[yellow]Update available: {__version__} → {cache['latest']}[/yellow]\n"
+                        f"[dim]  pip install --upgrade mem0-open-mcp[/dim]\n"
+                    )
+                return
+        
+        import httpx
+        resp = httpx.get("https://pypi.org/pypi/mem0-open-mcp/json", timeout=3)
+        resp.raise_for_status()
+        latest = resp.json()["info"]["version"]
+        
+        UPDATE_CHECK_CACHE.write_text(json.dumps({"last_check": now, "latest": latest}))
+        
+        if latest != __version__:
+            console.print(
+                f"[yellow]Update available: {__version__} → {latest}[/yellow]\n"
+                f"[dim]  pip install --upgrade mem0-open-mcp[/dim]\n"
+            )
+    except Exception:
+        pass
 
 
 def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
@@ -273,7 +310,9 @@ def serve(
         border_style="green",
     ))
     
-    console.print("\n[bold]Configuration:[/bold]")
+    _check_for_updates()
+    
+    console.print("[bold]Configuration:[/bold]")
     console.print(f"  Host: [cyan]{config.server.host}[/cyan]")
     console.print(f"  Port: [cyan]{config.server.port}[/cyan]")
     console.print(f"  User ID: [cyan]{config.server.user_id}[/cyan]")
