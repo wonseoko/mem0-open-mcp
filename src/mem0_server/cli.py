@@ -30,6 +30,106 @@ app = typer.Typer(
 console = Console()
 
 
+def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
+    """Run connectivity tests for LLM, Embedder, and Vector Store."""
+    console.print("[bold]Running connectivity tests...[/bold]\n")
+    
+    all_passed = True
+    
+    # Test Vector Store
+    console.print("  [dim]Vector Store...[/dim]", end=" ")
+    try:
+        vs_config = config.vector_store
+        if vs_config.provider.value == "qdrant":
+            from qdrant_client import QdrantClient
+            host = vs_config.config.host or "localhost"
+            port = vs_config.config.port or 6333
+            client = QdrantClient(host=host, port=port, timeout=5)
+            client.get_collections()
+            console.print("[green]✓ Connected[/green]")
+        elif vs_config.provider.value == "chroma":
+            import chromadb
+            if vs_config.config.host:
+                client = chromadb.HttpClient(host=vs_config.config.host, port=vs_config.config.port or 8000)
+            else:
+                client = chromadb.Client()
+            client.heartbeat()
+            console.print("[green]✓ Connected[/green]")
+        else:
+            console.print(f"[yellow]⚠ Skip (no test for {vs_config.provider.value})[/yellow]")
+    except Exception as e:
+        console.print(f"[red]✗ Failed: {e}[/red]")
+        all_passed = False
+    
+    # Test LLM
+    console.print("  [dim]LLM...[/dim]", end=" ")
+    try:
+        llm_config = config.llm
+        if llm_config.provider.value == "ollama":
+            import httpx
+            base_url = llm_config.config.base_url or "http://localhost:11434"
+            resp = httpx.get(f"{base_url}/api/tags", timeout=5)
+            resp.raise_for_status()
+            models = [m["name"] for m in resp.json().get("models", [])]
+            if llm_config.config.model in models or any(llm_config.config.model in m for m in models):
+                console.print(f"[green]✓ Connected ({llm_config.config.model})[/green]")
+            else:
+                console.print(f"[yellow]⚠ Connected but model '{llm_config.config.model}' not found[/yellow]")
+                console.print(f"      [dim]Available: {', '.join(models[:5])}{'...' if len(models) > 5 else ''}[/dim]")
+        elif llm_config.provider.value in ("openai", "lmstudio"):
+            import httpx
+            base_url = llm_config.config.base_url or "https://api.openai.com/v1"
+            headers = {}
+            if llm_config.config.api_key:
+                headers["Authorization"] = f"Bearer {llm_config.config.api_key}"
+            resp = httpx.get(f"{base_url}/models", headers=headers, timeout=5)
+            resp.raise_for_status()
+            console.print(f"[green]✓ Connected ({llm_config.config.model})[/green]")
+        else:
+            console.print(f"[yellow]⚠ Skip (no test for {llm_config.provider.value})[/yellow]")
+    except Exception as e:
+        console.print(f"[red]✗ Failed: {e}[/red]")
+        all_passed = False
+    
+    # Test Embedder
+    console.print("  [dim]Embedder...[/dim]", end=" ")
+    try:
+        emb_config = config.embedder
+        if emb_config.provider.value == "ollama":
+            import httpx
+            base_url = emb_config.config.base_url or "http://localhost:11434"
+            resp = httpx.get(f"{base_url}/api/tags", timeout=5)
+            resp.raise_for_status()
+            models = [m["name"] for m in resp.json().get("models", [])]
+            if emb_config.config.model in models or any(emb_config.config.model in m for m in models):
+                console.print(f"[green]✓ Connected ({emb_config.config.model})[/green]")
+            else:
+                console.print(f"[yellow]⚠ Connected but model '{emb_config.config.model}' not found[/yellow]")
+                console.print(f"      [dim]Available: {', '.join(models[:5])}{'...' if len(models) > 5 else ''}[/dim]")
+        elif emb_config.provider.value in ("openai", "lmstudio"):
+            import httpx
+            base_url = emb_config.config.base_url or "https://api.openai.com/v1"
+            headers = {}
+            if emb_config.config.api_key:
+                headers["Authorization"] = f"Bearer {emb_config.config.api_key}"
+            resp = httpx.get(f"{base_url}/models", headers=headers, timeout=5)
+            resp.raise_for_status()
+            console.print(f"[green]✓ Connected ({emb_config.config.model})[/green]")
+        else:
+            console.print(f"[yellow]⚠ Skip (no test for {emb_config.provider.value})[/yellow]")
+    except Exception as e:
+        console.print(f"[red]✗ Failed: {e}[/red]")
+        all_passed = False
+    
+    console.print()
+    if all_passed:
+        console.print("[bold green]All tests passed![/bold green]\n")
+    else:
+        console.print("[bold red]Some tests failed. Please check your configuration.[/bold red]\n")
+    
+    return all_passed
+
+
 def version_callback(value: bool) -> None:
     """Show version and exit."""
     if value:
@@ -83,6 +183,10 @@ def serve(
         str,
         typer.Option("--log-level", "-l", help="Logging level."),
     ] = "info",
+    test: Annotated[
+        bool,
+        typer.Option("--test", "-t", help="Run connectivity tests before starting server."),
+    ] = False,
 ) -> None:
     """Start the MCP server.
     
@@ -128,6 +232,10 @@ def serve(
     console.print(f"  Embedder: [cyan]{config.embedder.provider.value}[/cyan] / {config.embedder.config.model}")
     console.print(f"  Vector Store: [cyan]{config.vector_store.provider.value}[/cyan]")
     console.print()
+    
+    if test:
+        if not _run_connectivity_tests(config):
+            raise typer.Exit(1)
     
     # Start the server
     try:
