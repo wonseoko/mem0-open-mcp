@@ -213,8 +213,10 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         memory = Memory.from_config(mem0_config)
         console.print("[green]✓[/green]")
         
-        console.print("  [dim]Adding test memory...[/dim]", end=" ")
+        # 1. Add memory
+        console.print("  [dim]1. Adding test memory...[/dim]", end=" ")
         add_result = memory.add(test_memory_text, user_id=test_user_id)
+        memory_id = None
         if add_result and add_result.get("results"):
             first_result = add_result["results"][0]
             memory_id = first_result.get("id") if first_result else None
@@ -225,14 +227,40 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         else:
             console.print("[green]✓ Added[/green]")
         
-        console.print("  [dim]Searching memories...[/dim]", end=" ")
+        # 2. List memories
+        console.print("  [dim]2. Listing memories...[/dim]", end=" ")
+        list_result = memory.get_all(user_id=test_user_id)
+        if list_result and list_result.get("results"):
+            stored_count = len(list_result["results"])
+            console.print(f"[green]✓ Found {stored_count} memory(s)[/green]")
+            # Get memory_id from list if not captured from add
+            if not memory_id and stored_count > 0:
+                memory_id = list_result["results"][0].get("id")
+        else:
+            console.print("[red]✗ Memory not stored[/red]")
+            return False
+        
+        # 3. Search memories
+        console.print("  [dim]3. Searching memories...[/dim]", end=" ")
         search_result = memory.search("test memory verification", user_id=test_user_id, limit=5)
         if search_result and search_result.get("results"):
             console.print(f"[green]✓ Found {len(search_result['results'])} result(s)[/green]")
         else:
-            console.print("[yellow]⚠ No results (may be expected for new setup)[/yellow]")
+            console.print("[yellow]⚠ No search results (indexing may be delayed)[/yellow]")
         
-        console.print("  [dim]Cleaning up test data...[/dim]", end=" ")
+        # 4. Delete single memory
+        console.print("  [dim]4. Deleting single memory...[/dim]", end=" ")
+        if memory_id:
+            delete_result = memory.delete(memory_id)
+            if delete_result and delete_result.get("message"):
+                console.print(f"[green]✓ Deleted (id: {memory_id[:8]}...)[/green]")
+            else:
+                console.print("[green]✓ Deleted[/green]")
+        else:
+            console.print("[yellow]⚠ Skipped (no memory_id)[/yellow]")
+        
+        # 5. Cleanup remaining test data
+        console.print("  [dim]5. Cleaning up test data...[/dim]", end=" ")
         memory.delete_all(user_id=test_user_id)
         console.print("[green]✓ Cleaned[/green]")
         
