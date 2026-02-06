@@ -1,0 +1,54 @@
+# Default configuration file for mem0-server
+# See https://docs.mem0.ai for provider options
+
+server:
+  host: "0.0.0.0"
+  port: 8765
+  user_id: "default"
+  log_level: "info"
+  reload: false
+
+# LLM Configuration
+# Providers: openai, anthropic, azure_openai, ollama, together, groq, 
+#            litellm, mistralai, google_ai, aws_bedrock, gemini, deepseek, xai, lmstudio
+llm:
+  provider: "openai"
+  config:
+    model: "gpt-4o-mini"
+    temperature: 0.1
+    max_tokens: 2000
+    # Use env:VAR_NAME to read from environment variable
+    api_key: "env:OPENAI_API_KEY"
+    # For Ollama, set base_url instead:
+    # base_url: "http://localhost:11434"
+
+# Embedder Configuration
+# Providers: openai, azure_openai, ollama, huggingface, vertexai, gemini, 
+#            lmstudio, together, aws_bedrock
+embedder:
+  provider: "openai"
+  config:
+    model: "text-embedding-3-small"
+    api_key: "env:OPENAI_API_KEY"
+    # For Ollama:
+    # base_url: "http://localhost:11434"
+
+# Vector Store Configuration
+# Providers: qdrant, chroma, pinecone, milvus, weaviate, pgvector, 
+#            faiss, redis, azure_ai_search, vertex_ai_vector_search, mongodb_atlas, memory
+vector_store:
+  provider: "qdrant"
+  config:
+    collection_name: "mem0_memories"
+    host: "localhost"
+    port: 6333
+    # For cloud services:
+    # api_key: "env:QDRANT_API_KEY"
+    # url: "https://your-cluster.qdrant.io"
+
+# OpenMemory Settings
+openmemory:
+  # Custom instructions for memory extraction (optional)
+  custom_instructions: null
+  # Custom category definitions (optional)
+  custom_categories: null

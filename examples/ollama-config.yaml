@@ -1,0 +1,32 @@
+# Ollama configuration example for mem0-server
+# Use this for fully local LLM and embedding
+
+server:
+  host: "0.0.0.0"
+  port: 8765
+  user_id: "default"
+  log_level: "info"
+
+llm:
+  provider: "ollama"
+  config:
+    model: "llama3.2"  # or mistral, gemma2, etc.
+    temperature: 0.1
+    max_tokens: 2000
+    base_url: "http://localhost:11434"
+
+embedder:
+  provider: "ollama"
+  config:
+    model: "nomic-embed-text"  # or mxbai-embed-large
+    base_url: "http://localhost:11434"
+
+vector_store:
+  provider: "qdrant"
+  config:
+    collection_name: "mem0_memories"
+    host: "localhost"
+    port: 6333
+
+openmemory:
+  custom_instructions: null
