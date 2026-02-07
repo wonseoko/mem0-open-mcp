@@ -10,6 +10,9 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
+import time
+import psutil
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -249,11 +252,31 @@ class MCPServerManagerStdio:
     """Manages the MCP server for stdio transport without FastAPI/HTTP infrastructure."""
     
     def __init__(self, config: Mem0ServerConfig):
+        start_time = time.perf_counter()
+        
         self.config = config
         self._memory_client = None
         self._memory_client_initialized = False
+        
+        mcp_start = time.perf_counter()
         self._mcp = FastMCP("mem0-mcp-server")
+        mcp_time = (time.perf_counter() - mcp_start) * 1000
+        
+        tools_start = time.perf_counter()
         self._setup_tools()
+        tools_time = (time.perf_counter() - tools_start) * 1000
+        
+        total_time = (time.perf_counter() - start_time) * 1000
+        memory_bytes = psutil.Process(os.getpid()).memory_info().rss
+        memory_mb = memory_bytes / (1024 * 1024)
+        
+        logger.info(
+            f"[Performance] MCPServerManagerStdio initialization: "
+            f"FastMCP creation={mcp_time:.1f}ms, "
+            f"Tool registration={tools_time:.1f}ms, "
+            f"Total time={total_time:.1f}ms, "
+            f"Memory usage={memory_mb:.1f}MB (RSS)"
+        )
     
     @property
     def mcp(self) -> FastMCP:
@@ -275,11 +298,11 @@ class MCPServerManagerStdio:
             self._memory_client_initialized = True
             logger.info("mem0 AsyncMemory client initialized successfully")
             return self._memory_client
-            
+             
         except Exception as e:
             logger.error(f"Failed to initialize mem0 async client: {e}")
             raise
-    
+     
     async def get_memory_client_safe(self):
         """Get memory client with error handling. Returns None if unavailable."""
         try:
@@ -287,6 +310,23 @@ class MCPServerManagerStdio:
         except Exception as e:
             logger.warning(f"Memory client unavailable: {e}")
             return None
+     
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit - clean up resources."""
+        try:
+            if self._memory_client_initialized and self._memory_client:
+                logger.info("Cleaning up AsyncMemory client...")
+                if hasattr(self._memory_client, 'close'):
+                    await self._memory_client.close()
+                elif hasattr(self._memory_client, '__aexit__'):
+                    await self._memory_client.__aexit__(None, None, None)
+        except Exception as e:
+            logger.warning(f"Error during cleanup: {e}")
+        return False
     
     def _setup_tools(self) -> None:
         """Register MCP tools for memory operations."""

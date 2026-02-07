@@ -54,6 +54,86 @@ The `test` command verifies your configuration without starting the server:
 - Performs actual memory add/search operations
 - Cleans up test data automatically
 
+### Modes
+
+**stdio Mode (for mcp-proxy or Claude Desktop)**
+
+Run the server in stdio mode when integrating with mcp-proxy or Claude Desktop:
+
+```bash
+mem0-open-mcp stdio
+mem0-open-mcp stdio --config ./config.yaml
+```
+
+Use this mode when:
+- Running via mcp-proxy
+- Claude Desktop subprocess integration
+- Process spawns on demand
+- **Performance**: Optimized for v0.2.1+ with lightweight manager startup
+
+**serve Mode (HTTP/SSE server)**
+
+Run a persistent HTTP server for remote access or multiple concurrent clients:
+
+```bash
+mem0-open-mcp serve --port 8765
+```
+
+Use this mode when:
+- Remote access needed
+- Multiple concurrent clients
+- Always-on server preferred
+- Custom port configuration required
+
+### mcp-proxy Integration
+
+Use mcp-proxy to route MCP protocol between tools and Claude Desktop. Configure your `mcp-servers.json`:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "command": "mem0-open-mcp",
+      "args": ["stdio"]
+    }
+  }
+}
+```
+
+Or with a custom config:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "command": "mem0-open-mcp",
+      "args": ["stdio", "--config", "/path/to/config.yaml"]
+    }
+  }
+}
+```
+
+The stdio mode communicates via stdin/stdout, making it ideal for process-spawned integrations.
+
+### Update Command
+
+Keep mem0-open-mcp up to date with the self-update feature:
+
+```bash
+# Check for available updates
+mem0-open-mcp update --check
+
+# Force update to latest version
+mem0-open-mcp update --force
+
+# Update and exit on success
+mem0-open-mcp update
+```
+
+Options:
+- `--check`: Only check for available updates without installing
+- `--force`: Force reinstall even if already at latest version
+
 ## Configuration
 
 Create `mem0-open-mcp.yaml`:
@@ -152,6 +232,26 @@ http://localhost:8765/mcp/<client-name>/sse/<user-id>
 - Python 3.10+
 - Vector store (Qdrant recommended)
 - LLM server (Ollama, LMStudio, etc.)
+
+## Performance Optimizations
+
+### stdio Mode Optimizations (v0.2.1+)
+
+The stdio mode is optimized for performance:
+
+- **Lightweight Manager**: Reduced startup overhead compared to HTTP server
+- **On-Demand Spawning**: Process spawns only when needed for MCP requests
+- **No Server Overhead**: Eliminates HTTP/SSE connection management
+- **Ideal for Claude Desktop**: Minimal resource footprint when integrated via mcp-proxy
+
+Use stdio mode for optimal performance in Claude Desktop or mcp-proxy integrations.
+
+### Performance Tips
+
+- Use Qdrant vector store for best performance (recommended)
+- Keep embedding dimensions consistent (768 or 1536)
+- For large memory operations, increase vector store batch size in configuration
+- Monitor Ollama performance with local models (llama3.2 recommended for speed)
 
 ## Graph Store (Experimental)
 

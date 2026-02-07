@@ -26,9 +26,10 @@ from mem0_server.config import (
 )
 
 app = typer.Typer(
-    name="mem0-open-mcp",
-    help="Standalone MCP server for mem0 with web configuration UI.",
-    add_completion=False,
+	name="mem0-open-mcp",
+	help="Standalone MCP server for mem0 with web configuration UI.",
+	add_completion=False,
+	rich_markup_mode="rich",
 )
 
 console = Console()
@@ -45,37 +46,36 @@ def _parse_version(v: str) -> tuple[int, ...]:
         return (0, 0, 0)
 
 
-def _check_for_updates() -> None:
-    """Check PyPI for newer version (once per day)."""
-    try:
-        UPDATE_CHECK_CACHE.parent.mkdir(parents=True, exist_ok=True)
-        
-        now = time.time()
-        if UPDATE_CHECK_CACHE.exists():
-            cache = json.loads(UPDATE_CHECK_CACHE.read_text())
-            if now - cache.get("last_check", 0) < UPDATE_CHECK_INTERVAL:
-                latest = cache.get("latest")
-                if latest and _parse_version(latest) > _parse_version(__version__):
-                    console.print(
-                        f"[yellow]Update available: {__version__} → {latest}[/yellow]\n"
-                        f"[dim]  pip install --upgrade mem0-open-mcp[/dim]\n"
-                    )
-                return
-        
-        import httpx
-        resp = httpx.get("https://pypi.org/pypi/mem0-open-mcp/json", timeout=3)
-        resp.raise_for_status()
-        latest = resp.json()["info"]["version"]
-        
-        UPDATE_CHECK_CACHE.write_text(json.dumps({"last_check": now, "latest": latest}))
-        
-        if _parse_version(latest) > _parse_version(__version__):
-            console.print(
-                f"[yellow]Update available: {__version__} → {latest}[/yellow]\n"
-                f"[dim]  pip install --upgrade mem0-open-mcp[/dim]\n"
-            )
-    except Exception:
-        pass
+def _check_for_updates() -> tuple[str | None, bool]:
+	"""Check PyPI for newer version (once per day).
+	
+	Returns:
+		(latest_version, is_update_available)
+	"""
+	try:
+		UPDATE_CHECK_CACHE.parent.mkdir(parents=True, exist_ok=True)
+		
+		now = time.time()
+		if UPDATE_CHECK_CACHE.exists():
+			cache = json.loads(UPDATE_CHECK_CACHE.read_text())
+			if now - cache.get("last_check", 0) < UPDATE_CHECK_INTERVAL:
+				latest = cache.get("latest")
+				if latest and _parse_version(latest) > _parse_version(__version__):
+					return (latest, True)
+				return (latest, False)
+		
+		import httpx
+		resp = httpx.get("https://pypi.org/pypi/mem0-open-mcp/json", timeout=3)
+		resp.raise_for_status()
+		latest = resp.json()["info"]["version"]
+		
+		UPDATE_CHECK_CACHE.write_text(json.dumps({"last_check": now, "latest": latest}))
+		
+		if _parse_version(latest) > _parse_version(__version__):
+			return (latest, True)
+		return (latest, False)
+	except Exception:
+		return (None, False)
 
 
 def _model_matches(config_model: str, available_models: list[str]) -> bool:
@@ -500,26 +500,45 @@ async def _run_memory_tests_async_impl(config: Mem0ServerConfig, custom_message:
 
 
 def version_callback(value: bool) -> None:
-    """Show version and exit."""
-    if value:
-        console.print(f"[bold green]mem0-open-mcp[/bold green] version [cyan]{__version__}[/cyan]")
-        raise typer.Exit()
+	"""Show version and exit."""
+	if value:
+		console.print(f"[bold green]mem0-open-mcp[/bold green] version [cyan]{__version__}[/cyan]")
+		raise typer.Exit()
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
-    version: Annotated[
-        bool | None,
-        typer.Option(
-            "--version", "-v",
-            help="Show version and exit.",
-            callback=version_callback,
-            is_eager=True,
-        ),
-    ] = None,
+	ctx: typer.Context,
+	version: Annotated[
+		bool,
+		typer.Option(
+			"--version", "-v",
+			help="Show version and exit.",
+		),
+	] = False,
 ) -> None:
-    """mem0-open-mcp: Standalone MCP server for mem0."""
-    pass
+	"""Standalone MCP server for mem0 with web configuration UI."""
+	if version:
+		console.print(f"[bold green]mem0-open-mcp[/bold green] version [cyan]{__version__}[/cyan]")
+		raise typer.Exit()
+	
+	# Show help if no command provided
+	if ctx.invoked_subcommand is None:
+		console.print(ctx.get_help())
+		console.print()  # Empty line
+		
+		# Version info at the bottom
+		console.print(f"[dim]Current version: [cyan]{__version__}[/cyan][/dim]")
+		
+		# Check for updates
+		latest, is_update_available = _check_for_updates()
+		if is_update_available and latest:
+			console.print(
+				f"[yellow]⚠ Update available: {__version__} → {latest}[/yellow]\n"
+				f"[dim]Run [cyan]mem0-open-mcp update[/cyan] to upgrade[/dim]"
+			)
+		
+		raise typer.Exit()
 
 
 @app.command()
@@ -589,7 +608,7 @@ def serve(
         border_style="green",
     ))
     
-    _check_for_updates()
+    _check_for_updates()  # Check for updates (returns tuple but we don't use it here)
     
     console.print("[bold]Configuration:[/bold]")
     console.print(f"  Host: [cyan]{config.server.host}[/cyan]")
@@ -682,7 +701,7 @@ def test(
     console.print("[bold green]All tests passed! Configuration is ready.[/bold green]")
 
 
-@app.command()
+@app.command(name="configure")
 def configure(
     config_file: Annotated[
         Path | None,
@@ -888,6 +907,35 @@ def configure(
         console.print(f"  [bold]mem0-open-mcp serve --config {saved_path}[/bold]")
     else:
         console.print("[yellow]Configuration not saved.[/yellow]")
+
+
+@app.command(name="config")
+def config(
+    config_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--config", "-c",
+            help="Path to configuration file to create/edit.",
+        ),
+    ] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output", "-o",
+            help="Output path for configuration file.",
+        ),
+    ] = None,
+) -> None:
+    """Interactive configuration wizard (alias for configure).
+    
+    Creates or edits a mem0-open-mcp configuration file with guided prompts.
+    
+    Examples:
+        mem0-open-mcp config
+        mem0-open-mcp config --output ./my-config.yaml
+        mem0-open-mcp config --config ./existing-config.yaml
+    """
+    return configure(config_file, output)
 
 
 @app.command()
