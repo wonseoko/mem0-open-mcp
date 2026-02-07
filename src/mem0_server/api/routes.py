@@ -193,7 +193,7 @@ def create_api_router(
         from mem0_server import __version__
         
         cfg = current_config["config"]
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         
         return StatusResponse(
             status="running",
@@ -389,12 +389,12 @@ def create_api_router(
         cfg = current_config["config"]
         uid = user_id or cfg.server.user_id
         
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             raise HTTPException(status_code=503, detail="Memory system unavailable")
         
         try:
-            memories = memory_client.get_all(user_id=uid)
+            memories = await memory_client.get_all(user_id=uid)
             
             results = []
             if isinstance(memories, dict) and "results" in memories:
@@ -435,12 +435,12 @@ def create_api_router(
         cfg = current_config["config"]
         uid = request.user_id or cfg.server.user_id
         
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             raise HTTPException(status_code=503, detail="Memory system unavailable")
         
         try:
-            results_raw = memory_client.search(
+            results_raw = await memory_client.search(
                 query=request.query,
                 user_id=uid,
                 limit=request.limit,
@@ -472,12 +472,12 @@ def create_api_router(
     @router.get("/memories/{memory_id}", response_model=MemoryItem)
     async def get_memory(memory_id: str):
         """Get a specific memory by ID."""
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             raise HTTPException(status_code=503, detail="Memory system unavailable")
         
         try:
-            memory = memory_client.get(memory_id)
+            memory = await memory_client.get(memory_id)
             
             if not memory:
                 raise HTTPException(status_code=404, detail="Memory not found")
@@ -503,12 +503,12 @@ def create_api_router(
         cfg = current_config["config"]
         uid = request.user_id or cfg.server.user_id
         
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             raise HTTPException(status_code=503, detail="Memory system unavailable")
         
         try:
-            result = memory_client.add(
+            result = await memory_client.add(
                 request.text,
                 user_id=uid,
                 metadata=request.metadata or {},
@@ -527,12 +527,12 @@ def create_api_router(
     @router.delete("/memories/{memory_id}")
     async def delete_memory(memory_id: str):
         """Delete a specific memory."""
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             raise HTTPException(status_code=503, detail="Memory system unavailable")
         
         try:
-            memory_client.delete(memory_id)
+            await memory_client.delete(memory_id)
             return {"deleted": memory_id, "status": "ok"}
         except Exception as e:
             logger.exception(f"Error deleting memory: {e}")
@@ -541,14 +541,14 @@ def create_api_router(
     @router.post("/memories/delete", response_model=MemoryDeleteResponse)
     async def delete_memories(request: MemoryDeleteRequest):
         """Delete multiple memories by IDs."""
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             raise HTTPException(status_code=503, detail="Memory system unavailable")
         
         deleted = []
         for memory_id in request.memory_ids:
             try:
-                memory_client.delete(memory_id)
+                await memory_client.delete(memory_id)
                 deleted.append(memory_id)
             except Exception as e:
                 logger.warning(f"Failed to delete memory {memory_id}: {e}")
@@ -573,12 +573,12 @@ def create_api_router(
         cfg = current_config["config"]
         uid = user_id or cfg.server.user_id
         
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             raise HTTPException(status_code=503, detail="Memory system unavailable")
         
         try:
-            memory_client.delete_all(user_id=uid)
+            await memory_client.delete_all(user_id=uid)
             return {"status": "ok", "message": f"All memories deleted for user {uid}"}
         except Exception as e:
             logger.exception(f"Error deleting all memories: {e}")
@@ -592,7 +592,7 @@ def create_api_router(
         cfg = current_config["config"]
         uid = user_id or cfg.server.user_id
         
-        memory_client = get_memory_client_func()
+        memory_client = await get_memory_client_func()
         if not memory_client:
             return {
                 "status": "unavailable",
@@ -602,7 +602,7 @@ def create_api_router(
             }
         
         try:
-            memories = memory_client.get_all(user_id=uid)
+            memories = await memory_client.get_all(user_id=uid)
             
             if isinstance(memories, dict) and "results" in memories:
                 count = len(memories["results"])

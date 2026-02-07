@@ -153,6 +153,57 @@ http://localhost:8765/mcp/<client-name>/sse/<user-id>
 - Vector store (Qdrant recommended)
 - LLM server (Ollama, LMStudio, etc.)
 
+## Graph Store (Experimental)
+
+Graph store enables knowledge graph capabilities for relationship extraction between entities.
+
+### Configuration
+
+```yaml
+graph_store:
+  provider: "neo4j"
+  config:
+    url: "bolt://localhost:7687"
+    username: "neo4j"
+    password: "your-password"
+```
+
+### Installation
+
+```bash
+pip install mem0-open-mcp[neo4j]
+# or
+pip install mem0-open-mcp[kuzu]
+```
+
+### Limitations
+
+> **⚠️ Important**: Graph store requires LLMs with proper **tool calling** support.
+> 
+> - **OpenAI models**: Full support (recommended for graph store)
+> - **Ollama models**: Limited support - most models (llama3.2, llama3.1) do not follow tool schemas accurately, resulting in empty graph relations
+> 
+> If you need graph capabilities with local LLMs, consider using the `graph_store.llm` setting to specify a different LLM provider for graph operations only.
+
+```yaml
+# Example: Use OpenAI for graph, Ollama for everything else
+llm:
+  provider: "ollama"
+  config:
+    model: "llama3.2"
+
+graph_store:
+  provider: "neo4j"
+  config:
+    url: "bolt://localhost:7687"
+    username: "neo4j"
+    password: "password"
+  llm:
+    provider: "openai"
+    config:
+      model: "gpt-4o-mini"
+```
+
 ## License
 
 Apache 2.0

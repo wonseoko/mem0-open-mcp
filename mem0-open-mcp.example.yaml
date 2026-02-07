@@ -58,3 +58,24 @@ openmemory:
   custom_instructions: null
   # Custom category definitions (optional)
   custom_categories: null
+
+# Graph Store Configuration (optional - enables knowledge graph)
+# Providers: neo4j, memgraph, neptune, kuzu
+# graph_store:
+#   provider: "neo4j"
+#   config:
+#     url: "bolt://localhost:7687"
+#     username: "neo4j"
+#     password: "env:NEO4J_PASSWORD"
+#     database: "neo4j"
+#     # base_label: true  # Use __Entity__ label for all nodes
+#   # Embedding similarity threshold for node matching (0.0-1.0)
+#   threshold: 0.7
+#   # Custom prompt for entity extraction (optional)
+#   # custom_prompt: null
+#   # Separate LLM for graph queries (optional, uses main LLM if not set)
+#   # llm:
+#   #   provider: "openai"
+#   #   config:
+#   #     model: "gpt-4o"
+#   #     api_key: "env:OPENAI_API_KEY"

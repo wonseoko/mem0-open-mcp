@@ -35,6 +35,7 @@ class MCPServerManager:
     def __init__(self, config: Mem0ServerConfig):
         self.config = config
         self._memory_client = None
+        self._memory_client_initialized = False
         self._mcp = FastMCP("mem0-mcp-server")
         self._router = APIRouter(prefix="/mcp")
         self._sse = SseServerTransport("/mcp/messages/")
@@ -51,30 +52,30 @@ class MCPServerManager:
         """Get the API router with MCP endpoints."""
         return self._router
     
-    def get_memory_client(self):
-        """Get or initialize the mem0 memory client."""
-        if self._memory_client is not None:
+    async def get_memory_client(self):
+        """Get or initialize the mem0 async memory client."""
+        if self._memory_client_initialized:
             return self._memory_client
         
         try:
-            from mem0 import Memory
+            from mem0 import AsyncMemory
             
-            # Convert config to mem0 format
             mem0_config = self.config.to_mem0_config()
-            logger.info(f"Initializing mem0 with config: {json.dumps(mem0_config, indent=2)}")
+            logger.info(f"Initializing mem0 AsyncMemory with config: {json.dumps(mem0_config, indent=2)}")
             
-            self._memory_client = Memory.from_config(mem0_config)
-            logger.info("mem0 memory client initialized successfully")
+            self._memory_client = await AsyncMemory.from_config(mem0_config)
+            self._memory_client_initialized = True
+            logger.info("mem0 AsyncMemory client initialized successfully")
             return self._memory_client
             
         except Exception as e:
-            logger.error(f"Failed to initialize mem0 client: {e}")
+            logger.error(f"Failed to initialize mem0 async client: {e}")
             raise
     
-    def get_memory_client_safe(self):
+    async def get_memory_client_safe(self):
         """Get memory client with error handling. Returns None if unavailable."""
         try:
-            return self.get_memory_client()
+            return await self.get_memory_client()
         except Exception as e:
             logger.warning(f"Memory client unavailable: {e}")
             return None
@@ -91,12 +92,12 @@ class MCPServerManager:
             uid = user_id_var.get(None) or self.config.server.user_id
             client_name = client_name_var.get(None) or "default"
             
-            memory_client = self.get_memory_client_safe()
+            memory_client = await self.get_memory_client_safe()
             if not memory_client:
                 return "Error: Memory system is currently unavailable. Please try again later."
             
             try:
-                response = memory_client.add(
+                response = await memory_client.add(
                     text,
                     user_id=uid,
                     metadata={
@@ -116,12 +117,12 @@ class MCPServerManager:
         async def search_memory(query: str, limit: int = 10) -> str:
             uid = user_id_var.get(None) or self.config.server.user_id
             
-            memory_client = self.get_memory_client_safe()
+            memory_client = await self.get_memory_client_safe()
             if not memory_client:
                 return "Error: Memory system is currently unavailable. Please try again later."
             
             try:
-                results = memory_client.search(query=query, user_id=uid, limit=limit)
+                results = await memory_client.search(query=query, user_id=uid, limit=limit)
                 
                 if not results or not results.get("results"):
                     return json.dumps({"results": [], "message": "No relevant memories found."})
@@ -135,12 +136,12 @@ class MCPServerManager:
         async def list_memories() -> str:
             uid = user_id_var.get(None) or self.config.server.user_id
             
-            memory_client = self.get_memory_client_safe()
+            memory_client = await self.get_memory_client_safe()
             if not memory_client:
                 return "Error: Memory system is currently unavailable. Please try again later."
             
             try:
-                memories = memory_client.get_all(user_id=uid)
+                memories = await memory_client.get_all(user_id=uid)
                 return json.dumps(memories, indent=2)
             except Exception as e:
                 logger.exception(f"Error listing memories: {e}")
@@ -148,12 +149,12 @@ class MCPServerManager:
         
         @self._mcp.tool(description="Get a specific memory by ID.")
         async def get_memory(memory_id: str) -> str:
-            memory_client = self.get_memory_client_safe()
+            memory_client = await self.get_memory_client_safe()
             if not memory_client:
                 return "Error: Memory system is currently unavailable. Please try again later."
             
             try:
-                memory = memory_client.get(memory_id)
+                memory = await memory_client.get(memory_id)
                 return json.dumps(memory, indent=2)
             except Exception as e:
                 logger.exception(f"Error getting memory: {e}")
@@ -161,7 +162,7 @@ class MCPServerManager:
         
         @self._mcp.tool(description="Delete specific memories by their IDs.")
         async def delete_memories(memory_ids: list[str]) -> str:
-            memory_client = self.get_memory_client_safe()
+            memory_client = await self.get_memory_client_safe()
             if not memory_client:
                 return "Error: Memory system is currently unavailable. Please try again later."
             
@@ -169,7 +170,7 @@ class MCPServerManager:
                 deleted = []
                 for memory_id in memory_ids:
                     try:
-                        memory_client.delete(memory_id)
+                        await memory_client.delete(memory_id)
                         deleted.append(memory_id)
                     except Exception as e:
                         logger.warning(f"Failed to delete memory {memory_id}: {e}")
@@ -183,12 +184,12 @@ class MCPServerManager:
         async def delete_all_memories() -> str:
             uid = user_id_var.get(None) or self.config.server.user_id
             
-            memory_client = self.get_memory_client_safe()
+            memory_client = await self.get_memory_client_safe()
             if not memory_client:
                 return "Error: Memory system is currently unavailable. Please try again later."
             
             try:
-                memory_client.delete_all(user_id=uid)
+                await memory_client.delete_all(user_id=uid)
                 return "Successfully deleted all memories"
             except Exception as e:
                 logger.exception(f"Error deleting memories: {e}")

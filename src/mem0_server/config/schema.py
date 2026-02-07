@@ -168,6 +168,72 @@ class VectorStoreProvider(BaseModel):
 
 
 # =============================================================================
+# Graph Store Providers
+# =============================================================================
+
+class GraphStoreProviderType(str, Enum):
+    """Supported graph store providers."""
+    NEO4J = "neo4j"
+    MEMGRAPH = "memgraph"
+    NEPTUNE = "neptune"
+    KUZU = "kuzu"
+
+
+class GraphStoreConfig(BaseModel):
+    """Graph store configuration settings."""
+    url: str | None = Field(default=None, description="Graph database URL")
+    username: str | None = Field(default=None, description="Username for authentication")
+    password: str | None = Field(default=None, description="Password for authentication")
+    database: str | None = Field(default=None, description="Database name (Neo4j)")
+    db: str | None = Field(default=None, description="Database path (Kuzu, default: :memory:)")
+    endpoint: str | None = Field(default=None, description="Neptune endpoint")
+    base_label: bool | None = Field(default=None, description="Use base node label __Entity__")
+    
+    @field_validator("password", mode="before")
+    @classmethod
+    def resolve_env_var(cls, v: str | None) -> str | None:
+        """Resolve env:VAR_NAME syntax to actual environment variable value."""
+        if v is None:
+            return None
+        if v.startswith("env:"):
+            env_var = v[4:]
+            return os.environ.get(env_var)
+        return v
+
+
+class GraphStoreLLMConfig(BaseModel):
+    """LLM configuration for graph store queries."""
+    provider: LLMProviderType = Field(default=LLMProviderType.OPENAI, description="LLM provider")
+    config: LLMConfig = Field(default_factory=LLMConfig, description="LLM configuration")
+
+
+class GraphStoreProvider(BaseModel):
+    """Graph store provider configuration."""
+    provider: GraphStoreProviderType = Field(
+        default=GraphStoreProviderType.NEO4J,
+        description="Graph store provider"
+    )
+    config: GraphStoreConfig = Field(
+        default_factory=GraphStoreConfig,
+        description="Provider-specific configuration"
+    )
+    llm: GraphStoreLLMConfig | None = Field(
+        default=None,
+        description="LLM for graph store queries (uses main LLM if not set)"
+    )
+    custom_prompt: str | None = Field(
+        default=None,
+        description="Custom prompt for entity extraction"
+    )
+    threshold: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Embedding similarity threshold for node matching"
+    )
+
+
+# =============================================================================
 # OpenMemory Settings
 # =============================================================================
 
@@ -225,6 +291,10 @@ class Mem0ServerConfig(BaseModel):
     openmemory: OpenMemoryConfig = Field(
         default_factory=OpenMemoryConfig, 
         description="OpenMemory-specific settings"
+    )
+    graph_store: GraphStoreProvider | None = Field(
+        default=None,
+        description="Graph store configuration (optional, enables knowledge graph)"
     )
     
     def to_mem0_config(self) -> dict[str, Any]:
@@ -302,6 +372,53 @@ class Mem0ServerConfig(BaseModel):
         # Custom instructions (if any)
         if self.openmemory.custom_instructions:
             config["custom_prompt"] = self.openmemory.custom_instructions
+        
+        # Graph store config (if enabled)
+        if self.graph_store:
+            gs_config: dict[str, Any] = {}
+            if self.graph_store.config.url:
+                gs_config["url"] = self.graph_store.config.url
+            if self.graph_store.config.username:
+                gs_config["username"] = self.graph_store.config.username
+            if self.graph_store.config.password:
+                gs_config["password"] = self.graph_store.config.password
+            if self.graph_store.config.database:
+                gs_config["database"] = self.graph_store.config.database
+            if self.graph_store.config.db:
+                gs_config["db"] = self.graph_store.config.db
+            if self.graph_store.config.endpoint:
+                gs_config["endpoint"] = self.graph_store.config.endpoint
+            if self.graph_store.config.base_label is not None:
+                gs_config["base_label"] = self.graph_store.config.base_label
+            
+            graph_store_dict: dict[str, Any] = {
+                "provider": self.graph_store.provider.value,
+                "config": gs_config,
+                "threshold": self.graph_store.threshold,
+            }
+            
+            if self.graph_store.llm:
+                llm_conf: dict[str, Any] = {
+                    "model": self.graph_store.llm.config.model,
+                    "temperature": self.graph_store.llm.config.temperature,
+                    "max_tokens": self.graph_store.llm.config.max_tokens,
+                }
+                if self.graph_store.llm.config.api_key:
+                    llm_conf["api_key"] = self.graph_store.llm.config.api_key
+                if self.graph_store.llm.config.base_url:
+                    if self.graph_store.llm.provider == LLMProviderType.OLLAMA:
+                        llm_conf["ollama_base_url"] = self.graph_store.llm.config.base_url
+                    else:
+                        llm_conf["openai_base_url"] = self.graph_store.llm.config.base_url
+                graph_store_dict["llm"] = {
+                    "provider": self.graph_store.llm.provider.value,
+                    "config": llm_conf,
+                }
+            
+            if self.graph_store.custom_prompt:
+                graph_store_dict["custom_prompt"] = self.graph_store.custom_prompt
+            
+            config["graph_store"] = graph_store_dict
         
         return config
 
