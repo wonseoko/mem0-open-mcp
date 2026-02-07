@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from typing import Annotated
 
+logger = logging.getLogger(__name__)
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -1113,6 +1115,84 @@ def update(
         console.print("[dim]  pip install --upgrade mem0-open-mcp[/dim]")
         console.print("[dim]  uv pip install --upgrade mem0-open-mcp[/dim]")
         raise typer.Exit(1)
+
+
+@app.command()
+def stdio(
+    config_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--config", "-c",
+            help="Path to configuration file (YAML or JSON).",
+            exists=True,
+        ),
+    ] = None,
+    user_id: Annotated[
+        str | None,
+        typer.Option("--user-id", "-u", help="Default user ID for memories."),
+    ] = None,
+    log_level: Annotated[
+        str,
+        typer.Option("--log-level", "-l", help="Logging level."),
+    ] = "error",
+) -> None:
+    """Run MCP server in stdio mode (for mcp-proxy or Claude Desktop).
+    
+    This mode allows the server to be spawned as a subprocess and communicate
+    via stdin/stdout using JSON-RPC messages.
+    
+    Examples:
+        mem0-open-mcp stdio
+        mem0-open-mcp stdio --config ./my-config.yaml
+        mem0-open-mcp stdio --user-id alice
+    """
+    import asyncio
+    import sys
+    
+    # Load configuration
+    loader = ConfigLoader(config_file)
+    config = loader.load()
+    
+    # Override with CLI options
+    if user_id:
+        config.server.user_id = user_id
+    
+    # Configure logging (stderr only, as stdout is used for MCP protocol)
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper()),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        stream=sys.stderr,  # Important: use stderr to avoid interfering with stdout
+    )
+    
+    # Suppress update check in stdio mode
+    async def run_stdio():
+        """Run the MCP server in stdio mode."""
+        try:
+            from mcp.server.stdio import stdio_server
+            from mem0_server.server import create_mcp_manager
+            
+            # Create MCP manager without HTTP server
+            manager = create_mcp_manager(config)
+            
+            # Run stdio server
+            async with stdio_server() as (read_stream, write_stream):
+                await manager.mcp._mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    manager.mcp._mcp_server.create_initialization_options(),
+                )
+        except Exception as e:
+            logger.error(f"Error in stdio mode: {e}")
+            raise typer.Exit(1) from None
+    
+    # Run the async function
+    try:
+        asyncio.run(run_stdio())
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1) from None
 
 
 @app.command()

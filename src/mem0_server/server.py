@@ -245,6 +245,21 @@ class MCPServerManager:
             return await handle_post_message(request)
 
 
+def create_mcp_manager(config: Mem0ServerConfig) -> MCPServerManager:
+    """Create an MCPServerManager instance without HTTP server.
+    
+    This function is used for stdio mode which only needs the MCP protocol layer
+    without the FastAPI HTTP server infrastructure.
+    
+    Args:
+        config: The server configuration.
+    
+    Returns:
+        Configured MCPServerManager instance.
+    """
+    return MCPServerManager(config)
+
+
 def create_app(config: Mem0ServerConfig, config_loader: ConfigLoader | None = None) -> FastAPI:
     """Create the FastAPI application with MCP server and REST API.
     
