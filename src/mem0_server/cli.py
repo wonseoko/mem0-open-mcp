@@ -1059,10 +1059,25 @@ def update(
     console.print(f"[bold]{action} mem0-open-mcp...[/bold]\n")
     
     try:
-        # Use pip to upgrade
-        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "mem0-open-mcp"]
-        if force:
-            cmd.append("--force-reinstall")
+        import shutil
+        
+        # Detect package manager: prefer uv if available
+        uv_path = shutil.which("uv")
+        
+        if uv_path:
+            # Use uv
+            console.print("  [dim]Using uv...[/dim]")
+            cmd = [uv_path, "pip", "install", "--upgrade", "mem0-open-mcp"]
+            if force:
+                cmd.append("--force-reinstall")
+            pkg_manager = "uv"
+        else:
+            # Fallback to pip
+            console.print("  [dim]Using pip...[/dim]")
+            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "mem0-open-mcp"]
+            if force:
+                cmd.append("--force-reinstall")
+            pkg_manager = "pip"
         
         result = subprocess.run(
             cmd,
@@ -1087,11 +1102,16 @@ def update(
             console.print(f"[red]✗ Upgrade failed[/red]")
             if result.stderr:
                 console.print(f"[dim]{result.stderr}[/dim]")
+            # Suggest alternative
+            alt_cmd = "pip install --upgrade mem0-open-mcp" if pkg_manager == "uv" else "uv pip install --upgrade mem0-open-mcp"
+            console.print(f"\n[dim]Try: {alt_cmd}[/dim]")
             raise typer.Exit(1)
             
     except Exception as e:
         console.print(f"[red]✗ Error during upgrade: {e}[/red]")
-        console.print("\n[dim]Try manually: pip install --upgrade mem0-open-mcp[/dim]")
+        console.print("\n[dim]Try manually:[/dim]")
+        console.print("[dim]  pip install --upgrade mem0-open-mcp[/dim]")
+        console.print("[dim]  uv pip install --upgrade mem0-open-mcp[/dim]")
         raise typer.Exit(1)
 
 
