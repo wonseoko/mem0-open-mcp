@@ -12,8 +12,10 @@ from pydantic import BaseModel, Field, field_validator
 # LLM Providers
 # =============================================================================
 
+
 class LLMProviderType(str, Enum):
     """Supported LLM providers."""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     AZURE_OPENAI = "azure_openai"
@@ -32,12 +34,17 @@ class LLMProviderType(str, Enum):
 
 class LLMConfig(BaseModel):
     """LLM configuration settings."""
+
     model: str = Field(default="gpt-4o-mini", description="Model name")
-    temperature: float = Field(default=0.1, ge=0.0, le=2.0, description="Temperature for generation")
+    temperature: float = Field(
+        default=0.1, ge=0.0, le=2.0, description="Temperature for generation"
+    )
     max_tokens: int = Field(default=2000, gt=0, description="Maximum tokens to generate")
     api_key: str | None = Field(default=None, description="API key (supports env:VAR_NAME syntax)")
-    base_url: str | None = Field(default=None, description="Base URL for the API (e.g., for Ollama)")
-    
+    base_url: str | None = Field(
+        default=None, description="Base URL for the API (e.g., for Ollama)"
+    )
+
     @field_validator("api_key", mode="before")
     @classmethod
     def resolve_env_var(cls, v: str | None) -> str | None:
@@ -52,16 +59,21 @@ class LLMConfig(BaseModel):
 
 class LLMProvider(BaseModel):
     """LLM provider configuration."""
+
     provider: LLMProviderType = Field(default=LLMProviderType.OPENAI, description="LLM provider")
-    config: LLMConfig = Field(default_factory=LLMConfig, description="Provider-specific configuration")
+    config: LLMConfig = Field(
+        default_factory=LLMConfig, description="Provider-specific configuration"
+    )
 
 
 # =============================================================================
 # Embedder Providers
 # =============================================================================
 
+
 class EmbedderProviderType(str, Enum):
     """Supported embedder providers."""
+
     OPENAI = "openai"
     AZURE_OPENAI = "azure_openai"
     OLLAMA = "ollama"
@@ -75,11 +87,16 @@ class EmbedderProviderType(str, Enum):
 
 class EmbedderConfig(BaseModel):
     """Embedder configuration settings."""
+
     model: str = Field(default="text-embedding-3-small", description="Embedding model name")
     api_key: str | None = Field(default=None, description="API key (supports env:VAR_NAME syntax)")
-    base_url: str | None = Field(default=None, description="Base URL for the API (e.g., for Ollama)")
-    embedding_dims: int | None = Field(default=None, description="Embedding dimensions (auto-detected if not set)")
-    
+    base_url: str | None = Field(
+        default=None, description="Base URL for the API (e.g., for Ollama)"
+    )
+    embedding_dims: int | None = Field(
+        default=None, description="Embedding dimensions (auto-detected if not set)"
+    )
+
     @field_validator("api_key", mode="before")
     @classmethod
     def resolve_env_var(cls, v: str | None) -> str | None:
@@ -94,16 +111,23 @@ class EmbedderConfig(BaseModel):
 
 class EmbedderProvider(BaseModel):
     """Embedder provider configuration."""
-    provider: EmbedderProviderType = Field(default=EmbedderProviderType.OPENAI, description="Embedder provider")
-    config: EmbedderConfig = Field(default_factory=EmbedderConfig, description="Provider-specific configuration")
+
+    provider: EmbedderProviderType = Field(
+        default=EmbedderProviderType.OPENAI, description="Embedder provider"
+    )
+    config: EmbedderConfig = Field(
+        default_factory=EmbedderConfig, description="Provider-specific configuration"
+    )
 
 
 # =============================================================================
 # Vector Store Providers
 # =============================================================================
 
+
 class VectorStoreProviderType(str, Enum):
     """Supported vector store providers."""
+
     QDRANT = "qdrant"
     CHROMA = "chroma"
     PINECONE = "pinecone"
@@ -120,28 +144,31 @@ class VectorStoreProviderType(str, Enum):
 
 class VectorStoreConfig(BaseModel):
     """Vector store configuration settings.
-    
+
     Note: Different providers require different configuration options.
     Common fields are defined here, and additional provider-specific
     config can be passed through the extra dict.
     """
+
     # Common settings
     collection_name: str = Field(default="mem0_memories", description="Collection/index name")
-    
+
     # Qdrant/Milvus/Chroma settings
     host: str | None = Field(default=None, description="Server host (e.g., localhost)")
     port: int | None = Field(default=None, description="Server port (e.g., 6333 for Qdrant)")
     path: str | None = Field(default=None, description="Local storage path for embedded databases")
-    
+
     # Cloud service settings
     api_key: str | None = Field(default=None, description="API key for cloud services")
     url: str | None = Field(default=None, description="Full URL for cloud services")
-    
+
     # Embedding dimensions
     embedding_model_dims: int | None = Field(default=None, description="Embedding dimensions")
-    
+
     # Extra provider-specific config
-    extra: dict[str, Any] = Field(default_factory=dict, description="Additional provider-specific settings")
+    extra: dict[str, Any] = Field(
+        default_factory=dict, description="Additional provider-specific settings"
+    )
 
     @field_validator("api_key", mode="before")
     @classmethod
@@ -157,13 +184,12 @@ class VectorStoreConfig(BaseModel):
 
 class VectorStoreProvider(BaseModel):
     """Vector store provider configuration."""
+
     provider: VectorStoreProviderType = Field(
-        default=VectorStoreProviderType.QDRANT, 
-        description="Vector store provider"
+        default=VectorStoreProviderType.QDRANT, description="Vector store provider"
     )
     config: VectorStoreConfig = Field(
-        default_factory=VectorStoreConfig, 
-        description="Provider-specific configuration"
+        default_factory=VectorStoreConfig, description="Provider-specific configuration"
     )
 
 
@@ -171,8 +197,10 @@ class VectorStoreProvider(BaseModel):
 # Graph Store Providers
 # =============================================================================
 
+
 class GraphStoreProviderType(str, Enum):
     """Supported graph store providers."""
+
     NEO4J = "neo4j"
     MEMGRAPH = "memgraph"
     NEPTUNE = "neptune"
@@ -181,6 +209,7 @@ class GraphStoreProviderType(str, Enum):
 
 class GraphStoreConfig(BaseModel):
     """Graph store configuration settings."""
+
     url: str | None = Field(default=None, description="Graph database URL")
     username: str | None = Field(default=None, description="Username for authentication")
     password: str | None = Field(default=None, description="Password for authentication")
@@ -188,7 +217,7 @@ class GraphStoreConfig(BaseModel):
     db: str | None = Field(default=None, description="Database path (Kuzu, default: :memory:)")
     endpoint: str | None = Field(default=None, description="Neptune endpoint")
     base_label: bool | None = Field(default=None, description="Use base node label __Entity__")
-    
+
     @field_validator("password", mode="before")
     @classmethod
     def resolve_env_var(cls, v: str | None) -> str | None:
@@ -203,33 +232,46 @@ class GraphStoreConfig(BaseModel):
 
 class GraphStoreLLMConfig(BaseModel):
     """LLM configuration for graph store queries."""
+
     provider: LLMProviderType = Field(default=LLMProviderType.OPENAI, description="LLM provider")
     config: LLMConfig = Field(default_factory=LLMConfig, description="LLM configuration")
 
 
 class GraphStoreProvider(BaseModel):
     """Graph store provider configuration."""
+
     provider: GraphStoreProviderType = Field(
-        default=GraphStoreProviderType.NEO4J,
-        description="Graph store provider"
+        default=GraphStoreProviderType.NEO4J, description="Graph store provider"
     )
     config: GraphStoreConfig = Field(
-        default_factory=GraphStoreConfig,
-        description="Provider-specific configuration"
+        default_factory=GraphStoreConfig, description="Provider-specific configuration"
     )
     llm: GraphStoreLLMConfig | None = Field(
-        default=None,
-        description="LLM for graph store queries (uses main LLM if not set)"
+        default=None, description="LLM for graph store queries (uses main LLM if not set)"
     )
     custom_prompt: str | None = Field(
-        default=None,
-        description="Custom prompt for entity extraction"
+        default=None, description="Custom prompt for entity extraction"
     )
     threshold: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=1.0,
-        description="Embedding similarity threshold for node matching"
+        default=0.7, ge=0.0, le=1.0, description="Embedding similarity threshold for node matching"
+    )
+
+
+# =============================================================================
+# Custom Prompts Settings
+# =============================================================================
+
+
+class CustomPromptsConfig(BaseModel):
+    """Custom prompts for memory extraction and management."""
+
+    fact_extraction: str | None = Field(
+        default=None,
+        description="Custom prompt for fact extraction from conversations. "
+        "Should instruct the LLM to extract facts and return JSON with 'facts' key.",
+    )
+    update_memory: str | None = Field(
+        default=None, description="Custom prompt for memory update decisions."
     )
 
 
@@ -237,15 +279,15 @@ class GraphStoreProvider(BaseModel):
 # OpenMemory Settings
 # =============================================================================
 
+
 class OpenMemoryConfig(BaseModel):
     """OpenMemory-specific configuration."""
+
     custom_instructions: str | None = Field(
-        default=None, 
-        description="Custom instructions for memory extraction and management"
+        default=None, description="Custom instructions for memory extraction and management"
     )
     custom_categories: dict[str, str] | None = Field(
-        default=None,
-        description="Custom category definitions for memory tagging"
+        default=None, description="Custom category definitions for memory tagging"
     )
 
 
@@ -253,15 +295,16 @@ class OpenMemoryConfig(BaseModel):
 # Server Settings
 # =============================================================================
 
+
 class ServerConfig(BaseModel):
     """Server configuration settings."""
+
     host: str = Field(default="0.0.0.0", description="Server host to bind to")
     port: int = Field(default=8765, ge=1, le=65535, description="Server port")
     user_id: str = Field(default="default", description="Default user ID for memories")
     reload: bool = Field(default=False, description="Enable auto-reload for development")
     log_level: Literal["debug", "info", "warning", "error"] = Field(
-        default="info", 
-        description="Logging level"
+        default="info", description="Logging level"
     )
 
 
@@ -269,40 +312,44 @@ class ServerConfig(BaseModel):
 # Main Configuration
 # =============================================================================
 
+
 class Mem0ServerConfig(BaseModel):
     """Complete mem0-server configuration."""
-    
-    server: ServerConfig = Field(
-        default_factory=ServerConfig, 
-        description="Server settings"
-    )
-    llm: LLMProvider = Field(
-        default_factory=LLMProvider, 
-        description="LLM provider configuration"
-    )
+
+    server: ServerConfig = Field(default_factory=ServerConfig, description="Server settings")
+    llm: LLMProvider = Field(default_factory=LLMProvider, description="LLM provider configuration")
     embedder: EmbedderProvider = Field(
-        default_factory=EmbedderProvider, 
-        description="Embedder provider configuration"
+        default_factory=EmbedderProvider, description="Embedder provider configuration"
     )
     vector_store: VectorStoreProvider = Field(
-        default_factory=VectorStoreProvider, 
-        description="Vector store configuration"
+        default_factory=VectorStoreProvider, description="Vector store configuration"
     )
     openmemory: OpenMemoryConfig = Field(
-        default_factory=OpenMemoryConfig, 
-        description="OpenMemory-specific settings"
+        default_factory=OpenMemoryConfig, description="OpenMemory-specific settings"
     )
     graph_store: GraphStoreProvider | None = Field(
-        default=None,
-        description="Graph store configuration (optional, enables knowledge graph)"
+        default=None, description="Graph store configuration (optional, enables knowledge graph)"
     )
-    
+    custom_prompts: CustomPromptsConfig = Field(
+        default_factory=CustomPromptsConfig,
+        description="Custom prompts for fact extraction and memory updates",
+    )
+    vector_store: VectorStoreProvider = Field(
+        default_factory=VectorStoreProvider, description="Vector store configuration"
+    )
+    openmemory: OpenMemoryConfig = Field(
+        default_factory=OpenMemoryConfig, description="OpenMemory-specific settings"
+    )
+    graph_store: GraphStoreProvider | None = Field(
+        default=None, description="Graph store configuration (optional, enables knowledge graph)"
+    )
+
     def to_mem0_config(self) -> dict[str, Any]:
         """Convert to mem0 library configuration format."""
         config: dict[str, Any] = {
             "version": "v1.1",
         }
-        
+
         # LLM config
         llm_config: dict[str, Any] = {
             "model": self.llm.config.model,
@@ -318,12 +365,12 @@ class Mem0ServerConfig(BaseModel):
                 llm_config["openai_base_url"] = self.llm.config.base_url
                 if not self.llm.config.api_key:
                     llm_config["api_key"] = "lm-studio"
-        
+
         config["llm"] = {
             "provider": self.llm.provider.value,
             "config": llm_config,
         }
-        
+
         # Embedder config
         embedder_config: dict[str, Any] = {
             "model": self.embedder.config.model,
@@ -339,12 +386,12 @@ class Mem0ServerConfig(BaseModel):
                     embedder_config["api_key"] = "lm-studio"
         if self.embedder.config.embedding_dims:
             embedder_config["embedding_dims"] = self.embedder.config.embedding_dims
-        
+
         config["embedder"] = {
             "provider": self.embedder.provider.value,
             "config": embedder_config,
         }
-        
+
         # Vector store config
         vs_config: dict[str, Any] = {
             "collection_name": self.vector_store.config.collection_name,
@@ -363,16 +410,22 @@ class Mem0ServerConfig(BaseModel):
             vs_config["embedding_model_dims"] = self.vector_store.config.embedding_model_dims
         # Merge extra config
         vs_config.update(self.vector_store.config.extra)
-        
+
         config["vector_store"] = {
             "provider": self.vector_store.provider.value,
             "config": vs_config,
         }
-        
-        # Custom instructions (if any)
+
+        # Custom instructions (if any) - legacy support
         if self.openmemory.custom_instructions:
             config["custom_prompt"] = self.openmemory.custom_instructions
-        
+
+        # Custom prompts for fact extraction and memory updates
+        if self.custom_prompts.fact_extraction:
+            config["custom_fact_extraction_prompt"] = self.custom_prompts.fact_extraction
+        if self.custom_prompts.update_memory:
+            config["custom_update_memory_prompt"] = self.custom_prompts.update_memory
+
         # Graph store config (if enabled)
         if self.graph_store:
             gs_config: dict[str, Any] = {}
@@ -390,13 +443,13 @@ class Mem0ServerConfig(BaseModel):
                 gs_config["endpoint"] = self.graph_store.config.endpoint
             if self.graph_store.config.base_label is not None:
                 gs_config["base_label"] = self.graph_store.config.base_label
-            
+
             graph_store_dict: dict[str, Any] = {
                 "provider": self.graph_store.provider.value,
                 "config": gs_config,
                 "threshold": self.graph_store.threshold,
             }
-            
+
             if self.graph_store.llm:
                 llm_conf: dict[str, Any] = {
                     "model": self.graph_store.llm.config.model,
@@ -414,12 +467,12 @@ class Mem0ServerConfig(BaseModel):
                     "provider": self.graph_store.llm.provider.value,
                     "config": llm_conf,
                 }
-            
+
             if self.graph_store.custom_prompt:
                 graph_store_dict["custom_prompt"] = self.graph_store.custom_prompt
-            
+
             config["graph_store"] = graph_store_dict
-        
+
         return config
 
 
