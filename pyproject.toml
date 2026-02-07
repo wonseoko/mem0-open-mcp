@@ -1,6 +1,6 @@
 [project]
 name = "mem0-open-mcp"
-version = "0.1.12"
+version = "0.1.13"
 description = "Open-source MCP server for mem0 - local LLMs, self-hosted, Docker-free"
 readme = "README.md"
 license = "Apache-2.0"

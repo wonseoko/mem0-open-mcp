@@ -980,6 +980,122 @@ def status(
 
 
 @app.command()
+def update(
+    check_only: Annotated[
+        bool,
+        typer.Option(
+            "--check", "-c",
+            help="Only check for updates without installing.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force", "-f",
+            help="Force reinstall even if already up to date.",
+        ),
+    ] = False,
+) -> None:
+    """Check for updates and upgrade to the latest version.
+    
+    Examples:
+        mem0-open-mcp update
+        mem0-open-mcp update --check
+        mem0-open-mcp update --force
+    """
+    import subprocess
+    import sys
+    
+    console.print(Panel.fit(
+        "[bold green]mem0-open-mcp Update[/bold green]",
+        border_style="green",
+    ))
+    
+    console.print(f"\n  Current version: [cyan]{__version__}[/cyan]")
+    
+    # Check PyPI for latest version
+    console.print("  Checking PyPI for latest version...", end=" ")
+    try:
+        import httpx
+        resp = httpx.get("https://pypi.org/pypi/mem0-open-mcp/json", timeout=10)
+        resp.raise_for_status()
+        latest = resp.json()["info"]["version"]
+        console.print(f"[green]✓[/green]")
+        console.print(f"  Latest version:  [cyan]{latest}[/cyan]")
+    except Exception as e:
+        console.print(f"[red]✗[/red]")
+        console.print(f"  [red]Failed to check PyPI: {e}[/red]")
+        raise typer.Exit(1)
+    
+    # Compare versions
+    current_parsed = _parse_version(__version__)
+    latest_parsed = _parse_version(latest)
+    
+    console.print()
+    
+    if current_parsed >= latest_parsed and not force:
+        console.print("[green]✓ You are already using the latest version![/green]")
+        
+        # Update cache
+        try:
+            UPDATE_CHECK_CACHE.parent.mkdir(parents=True, exist_ok=True)
+            UPDATE_CHECK_CACHE.write_text(json.dumps({
+                "last_check": time.time(),
+                "latest": latest,
+            }))
+        except Exception:
+            pass
+        
+        return
+    
+    if check_only:
+        if current_parsed < latest_parsed:
+            console.print(f"[yellow]Update available: {__version__} → {latest}[/yellow]")
+            console.print("\n[dim]Run 'mem0-open-mcp update' to install the update.[/dim]")
+        return
+    
+    # Perform upgrade
+    action = "Reinstalling" if force else "Upgrading"
+    console.print(f"[bold]{action} mem0-open-mcp...[/bold]\n")
+    
+    try:
+        # Use pip to upgrade
+        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "mem0-open-mcp"]
+        if force:
+            cmd.append("--force-reinstall")
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+        )
+        
+        if result.returncode == 0:
+            console.print(f"[green]✓ Successfully upgraded to {latest}![/green]")
+            console.print("\n[dim]Restart the server to use the new version.[/dim]")
+            
+            # Update cache
+            try:
+                UPDATE_CHECK_CACHE.parent.mkdir(parents=True, exist_ok=True)
+                UPDATE_CHECK_CACHE.write_text(json.dumps({
+                    "last_check": time.time(),
+                    "latest": latest,
+                }))
+            except Exception:
+                pass
+        else:
+            console.print(f"[red]✗ Upgrade failed[/red]")
+            if result.stderr:
+                console.print(f"[dim]{result.stderr}[/dim]")
+            raise typer.Exit(1)
+            
+    except Exception as e:
+        console.print(f"[red]✗ Error during upgrade: {e}[/red]")
+        console.print("\n[dim]Try manually: pip install --upgrade mem0-open-mcp[/dim]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def init(
     path: Annotated[
         Path | None,
