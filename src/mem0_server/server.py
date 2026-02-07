@@ -245,19 +245,193 @@ class MCPServerManager:
             return await handle_post_message(request)
 
 
-def create_mcp_manager(config: Mem0ServerConfig) -> MCPServerManager:
-    """Create an MCPServerManager instance without HTTP server.
+class MCPServerManagerStdio:
+    """Manages the MCP server for stdio transport without FastAPI/HTTP infrastructure."""
     
-    This function is used for stdio mode which only needs the MCP protocol layer
-    without the FastAPI HTTP server infrastructure.
+    def __init__(self, config: Mem0ServerConfig):
+        self.config = config
+        self._memory_client = None
+        self._memory_client_initialized = False
+        self._mcp = FastMCP("mem0-mcp-server")
+        self._setup_tools()
+    
+    @property
+    def mcp(self) -> FastMCP:
+        """Get the FastMCP instance."""
+        return self._mcp
+    
+    async def get_memory_client(self):
+        """Get or initialize the mem0 async memory client."""
+        if self._memory_client_initialized:
+            return self._memory_client
+        
+        try:
+            from mem0 import AsyncMemory
+            
+            mem0_config = self.config.to_mem0_config()
+            logger.info(f"Initializing mem0 AsyncMemory with config: {json.dumps(mem0_config, indent=2)}")
+            
+            self._memory_client = await AsyncMemory.from_config(mem0_config)
+            self._memory_client_initialized = True
+            logger.info("mem0 AsyncMemory client initialized successfully")
+            return self._memory_client
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize mem0 async client: {e}")
+            raise
+    
+    async def get_memory_client_safe(self):
+        """Get memory client with error handling. Returns None if unavailable."""
+        try:
+            return await self.get_memory_client()
+        except Exception as e:
+            logger.warning(f"Memory client unavailable: {e}")
+            return None
+    
+    def _setup_tools(self) -> None:
+        """Register MCP tools for memory operations."""
+        
+        @self._mcp.tool(
+            description="Add a new memory. Called when user shares information about themselves, "
+                       "preferences, or anything relevant for future conversations. "
+                       "Also called when user explicitly asks to remember something."
+        )
+        async def add_memories(text: str) -> str:
+            uid = user_id_var.get(None) or self.config.server.user_id
+            client_name = client_name_var.get(None) or "default"
+            
+            memory_client = await self.get_memory_client_safe()
+            if not memory_client:
+                return "Error: Memory system is currently unavailable. Please try again later."
+            
+            try:
+                response = await memory_client.add(
+                    text,
+                    user_id=uid,
+                    metadata={
+                        "source_app": "mem0-server",
+                        "mcp_client": client_name,
+                    }
+                )
+                return json.dumps(response, indent=2)
+            except Exception as e:
+                logger.exception(f"Error adding memory: {e}")
+                return f"Error adding to memory: {e}"
+        
+        @self._mcp.tool(
+            description="Search through stored memories. Called when user asks anything "
+                       "to find relevant context from past conversations."
+        )
+        async def search_memory(query: str, limit: int = 10) -> str:
+            uid = user_id_var.get(None) or self.config.server.user_id
+            
+            memory_client = await self.get_memory_client_safe()
+            if not memory_client:
+                return "Error: Memory system is currently unavailable. Please try again later."
+            
+            try:
+                results = await memory_client.search(query=query, user_id=uid, limit=limit)
+                
+                if not results or not results.get("results"):
+                    return json.dumps({"results": [], "message": "No relevant memories found."})
+                
+                return json.dumps(results, indent=2)
+            except Exception as e:
+                logger.exception(f"Error searching memory: {e}")
+                return f"Error searching memory: {e}"
+        
+        @self._mcp.tool(description="List all memories for the user.")
+        async def list_memories() -> str:
+            uid = user_id_var.get(None) or self.config.server.user_id
+            
+            memory_client = await self.get_memory_client_safe()
+            if not memory_client:
+                return "Error: Memory system is currently unavailable. Please try again later."
+            
+            try:
+                memories = await memory_client.get_all(user_id=uid)
+                return json.dumps(memories, indent=2)
+            except Exception as e:
+                logger.exception(f"Error listing memories: {e}")
+                return f"Error getting memories: {e}"
+        
+        @self._mcp.tool(description="Get a specific memory by ID.")
+        async def get_memory(memory_id: str) -> str:
+            memory_client = await self.get_memory_client_safe()
+            if not memory_client:
+                return "Error: Memory system is currently unavailable. Please try again later."
+            
+            try:
+                memory = await memory_client.get(memory_id)
+                return json.dumps(memory, indent=2)
+            except Exception as e:
+                logger.exception(f"Error getting memory: {e}")
+                return f"Error getting memory: {e}"
+        
+        @self._mcp.tool(description="Delete specific memories by their IDs.")
+        async def delete_memories(memory_ids: list[str]) -> str:
+            memory_client = await self.get_memory_client_safe()
+            if not memory_client:
+                return "Error: Memory system is currently unavailable. Please try again later."
+            
+            try:
+                deleted = []
+                for memory_id in memory_ids:
+                    try:
+                        await memory_client.delete(memory_id)
+                        deleted.append(memory_id)
+                    except Exception as e:
+                        logger.warning(f"Failed to delete memory {memory_id}: {e}")
+                
+                return f"Successfully deleted {len(deleted)} memories"
+            except Exception as e:
+                logger.exception(f"Error deleting memories: {e}")
+                return f"Error deleting memories: {e}"
+        
+        @self._mcp.tool(description="Delete all memories for the user.")
+        async def delete_all_memories() -> str:
+            uid = user_id_var.get(None) or self.config.server.user_id
+            
+            memory_client = await self.get_memory_client_safe()
+            if not memory_client:
+                return "Error: Memory system is currently unavailable. Please try again later."
+            
+            try:
+                await memory_client.delete_all(user_id=uid)
+                return "Successfully deleted all memories"
+            except Exception as e:
+                logger.exception(f"Error deleting memories: {e}")
+                return f"Error deleting memories: {e}"
+
+
+def create_mcp_manager(config: Mem0ServerConfig) -> MCPServerManager:
+     """Create an MCPServerManager instance without HTTP server.
+     
+     This function is used for stdio mode which only needs the MCP protocol layer
+     without the FastAPI HTTP server infrastructure.
+     
+     Args:
+         config: The server configuration.
+     
+     Returns:
+         Configured MCPServerManager instance.
+     """
+     return MCPServerManager(config)
+
+
+def create_mcp_manager_stdio(config: Mem0ServerConfig) -> MCPServerManagerStdio:
+    """Create an MCPServerManagerStdio instance for stdio transport.
+    
+    This function creates an MCP manager optimized for stdio transport without
+    any FastAPI HTTP infrastructure. It only manages the FastMCP instance and tools.
     
     Args:
         config: The server configuration.
     
     Returns:
-        Configured MCPServerManager instance.
+        Configured MCPServerManagerStdio instance.
     """
-    return MCPServerManager(config)
+    return MCPServerManagerStdio(config)
 
 
 def create_app(config: Mem0ServerConfig, config_loader: ConfigLoader | None = None) -> FastAPI:

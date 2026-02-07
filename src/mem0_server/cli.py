@@ -1169,10 +1169,10 @@ def stdio(
         """Run the MCP server in stdio mode."""
         try:
             from mcp.server.stdio import stdio_server
-            from mem0_server.server import create_mcp_manager
+            from mem0_server.server import create_mcp_manager_stdio
             
-            # Create MCP manager without HTTP server
-            manager = create_mcp_manager(config)
+            # Create MCP manager optimized for stdio transport
+            manager = create_mcp_manager_stdio(config)
             
             # Run stdio server
             async with stdio_server() as (read_stream, write_stream):
