@@ -219,7 +219,7 @@ def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
     return all_passed
 
 
-def _run_memory_tests(config: Mem0ServerConfig) -> bool:
+def _run_memory_tests(config: Mem0ServerConfig, custom_message: str | None = None) -> bool:
     """Run actual mem0 memory add/search tests."""
     import os
     import time
@@ -227,9 +227,13 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
     console.print("[bold]Running memory tests...[/bold]\n")
     
     test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
-    test_memory_text = "Alice is a software engineer at TechCorp. She knows Bob who is a data scientist at DataLab. They collaborate on AI projects."
+    default_message = "Alice is a software engineer at TechCorp. She knows Bob who is a data scientist at DataLab. They collaborate on AI projects."
+    test_memory_text = custom_message if custom_message else default_message
     max_retries = 20
     retry_interval = 0.5
+    
+    console.print(f"  [dim]Test message:[/dim]")
+    console.print(f"    [italic]\"{test_memory_text}\"[/italic]\n")
     
     try:
         console.print("  [dim]Initializing mem0 client...[/dim]", end=" ")
@@ -257,6 +261,7 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         # 2. List memories (with retry)
         console.print("  [dim]2. Listing memories...[/dim]", end=" ")
         stored_count = 0
+        list_result = None
         for attempt in range(max_retries):
             list_result = memory.get_all(user_id=test_user_id)
             if list_result and list_result.get("results"):
@@ -269,6 +274,11 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         
         if stored_count > 0:
             console.print(f"[green]✓ Found {stored_count} memory(s)[/green]")
+            # Show extracted memories
+            if list_result and list_result.get("results"):
+                for i, mem in enumerate(list_result["results"][:5]):
+                    mem_text = mem.get("memory", "")[:50]
+                    console.print(f"       [dim]{i+1}. {mem_text}...[/dim]")
         else:
             console.print("[red]✗ Memory not stored (waited 10s)[/red]")
             return False
@@ -277,8 +287,15 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         if hasattr(memory, 'enable_graph') and memory.enable_graph:
             console.print("  [dim]   Graph store...[/dim]", end=" ")
             if list_result and list_result.get("relations") is not None:
-                relations_count = len(list_result.get("relations", []))
+                relations = list_result.get("relations", [])
+                relations_count = len(relations)
                 console.print(f"[green]✓ Enabled ({relations_count} relation(s))[/green]")
+                # Show extracted relations
+                for rel in relations[:5]:
+                    src = rel.get("source", "?")
+                    r = rel.get("relationship", "?")
+                    tgt = rel.get("target", rel.get("destination", "?"))
+                    console.print(f"       [dim]• {src} --[{r}]--> {tgt}[/dim]")
             else:
                 console.print("[yellow]⚠ Enabled but no relations returned[/yellow]")
         
@@ -342,13 +359,13 @@ def _run_memory_tests(config: Mem0ServerConfig) -> bool:
         return False
 
 
-def _run_memory_tests_async(config: Mem0ServerConfig) -> bool:
+def _run_memory_tests_async(config: Mem0ServerConfig, custom_message: str | None = None) -> bool:
     """Run mem0 memory tests using AsyncMemory."""
     import asyncio
-    return asyncio.run(_run_memory_tests_async_impl(config))
+    return asyncio.run(_run_memory_tests_async_impl(config, custom_message))
 
 
-async def _run_memory_tests_async_impl(config: Mem0ServerConfig) -> bool:
+async def _run_memory_tests_async_impl(config: Mem0ServerConfig, custom_message: str | None = None) -> bool:
     """Async implementation of memory tests."""
     import asyncio
     import os
@@ -356,9 +373,13 @@ async def _run_memory_tests_async_impl(config: Mem0ServerConfig) -> bool:
     console.print("[bold]Running async memory tests...[/bold]\n")
     
     test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
-    test_memory_text = "Alice is a software engineer at TechCorp. She knows Bob who is a data scientist at DataLab. They collaborate on AI projects."
+    default_message = "Alice is a software engineer at TechCorp. She knows Bob who is a data scientist at DataLab. They collaborate on AI projects."
+    test_memory_text = custom_message if custom_message else default_message
     max_retries = 20
     retry_interval = 0.5
+    
+    console.print(f"  [dim]Test message:[/dim]")
+    console.print(f"    [italic]\"{test_memory_text}\"[/italic]\n")
     
     try:
         console.print("  [dim]Initializing AsyncMemory client...[/dim]", end=" ")
@@ -384,6 +405,7 @@ async def _run_memory_tests_async_impl(config: Mem0ServerConfig) -> bool:
         
         console.print("  [dim]2. Listing memories...[/dim]", end=" ")
         stored_count = 0
+        list_result = None
         for attempt in range(max_retries):
             list_result = await memory.get_all(user_id=test_user_id)
             if list_result and list_result.get("results"):
@@ -396,6 +418,11 @@ async def _run_memory_tests_async_impl(config: Mem0ServerConfig) -> bool:
         
         if stored_count > 0:
             console.print(f"[green]✓ Found {stored_count} memory(s)[/green]")
+            # Show extracted memories
+            if list_result and list_result.get("results"):
+                for i, mem in enumerate(list_result["results"][:5]):
+                    mem_text = mem.get("memory", "")[:50]
+                    console.print(f"       [dim]{i+1}. {mem_text}...[/dim]")
         else:
             console.print("[red]✗ Memory not stored (waited 10s)[/red]")
             return False
@@ -403,8 +430,15 @@ async def _run_memory_tests_async_impl(config: Mem0ServerConfig) -> bool:
         if hasattr(memory, 'enable_graph') and memory.enable_graph:
             console.print("  [dim]   Graph store...[/dim]", end=" ")
             if list_result and list_result.get("relations") is not None:
-                relations_count = len(list_result.get("relations", []))
+                relations = list_result.get("relations", [])
+                relations_count = len(relations)
                 console.print(f"[green]✓ Enabled ({relations_count} relation(s))[/green]")
+                # Show extracted relations
+                for rel in relations[:5]:
+                    src = rel.get("source", "?")
+                    r = rel.get("relationship", "?")
+                    tgt = rel.get("target", rel.get("destination", "?"))
+                    console.print(f"       [dim]• {src} --[{r}]--> {tgt}[/dim]")
             else:
                 console.print("[yellow]⚠ Enabled but no relations returned[/yellow]")
         
@@ -594,6 +628,13 @@ def test(
             help="Use AsyncMemory instead of sync Memory.",
         ),
     ] = False,
+    message: Annotated[
+        str | None,
+        typer.Option(
+            "--message", "-m",
+            help="Custom test message for memory operations.",
+        ),
+    ] = None,
 ) -> None:
     """Test connectivity and memory operations without starting server.
     
@@ -601,6 +642,7 @@ def test(
         mem0-open-mcp test
         mem0-open-mcp test --async
         mem0-open-mcp test --config ./my-config.yaml
+        mem0-open-mcp test --message "John works at Google as a senior engineer."
     """
     loader = ConfigLoader(config_file)
     config = loader.load()
@@ -618,16 +660,21 @@ def test(
     console.print(f"  Vector Store: [cyan]{config.vector_store.provider.value}[/cyan]")
     if config.graph_store:
         console.print(f"  Graph Store: [cyan]{config.graph_store.provider.value}[/cyan]")
+        if config.graph_store.llm:
+            graph_llm_model = config.graph_store.llm.config.model if config.graph_store.llm.config else "N/A"
+            console.print(f"    └─ Graph LLM: [cyan]{config.graph_store.llm.provider.value}[/cyan] / {graph_llm_model} [dim](separate)[/dim]")
+        else:
+            console.print(f"    └─ Graph LLM: [dim](using main LLM)[/dim]")
     console.print()
     
     if not _run_connectivity_tests(config):
         raise typer.Exit(1)
     
     if use_async:
-        if not _run_memory_tests_async(config):
+        if not _run_memory_tests_async(config, message):
             raise typer.Exit(1)
     else:
-        if not _run_memory_tests(config):
+        if not _run_memory_tests(config, message):
             raise typer.Exit(1)
     
     console.print("[bold green]All tests passed! Configuration is ready.[/bold green]")
