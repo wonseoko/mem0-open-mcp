@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import logging.handlers
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -35,7 +37,43 @@ app = typer.Typer(
 console = Console()
 
 UPDATE_CHECK_CACHE = Path.home() / ".cache" / "mem0-open-mcp" / "update_check.json"
-UPDATE_CHECK_INTERVAL = 86400  # 24 hours
+UPDATE_CHECK_INTERVAL = 86400
+
+
+def _setup_file_logging(log_level: str = "info", mode: str = "server") -> Path | None:
+    from mem0_server.config.loader import MEM0_LOGS_DIR
+
+    MEM0_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    log_file = MEM0_LOGS_DIR / f"{mode}.log"
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, log_level.upper()))
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    root_logger.addHandler(file_handler)
+
+    perf_logger = logging.getLogger("mem0_server.performance")
+    perf_file = MEM0_LOGS_DIR / "performance.log"
+    perf_handler = logging.handlers.RotatingFileHandler(
+        perf_file,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    perf_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+    perf_logger.addHandler(perf_handler)
+    perf_logger.setLevel(logging.INFO)
+
+    return log_file
 
 
 def _parse_version(v: str) -> tuple[int, ...]:
@@ -986,11 +1024,11 @@ def serve(
     if log_level:
         config.server.log_level = log_level  # type: ignore
 
-    # Configure logging
     logging.basicConfig(
         level=getattr(logging, config.server.log_level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+    log_file = _setup_file_logging(config.server.log_level, mode="server")
 
     # Display startup info
     console.print(
@@ -1662,14 +1700,13 @@ def stdio(
     if user_id:
         config.server.user_id = user_id
 
-    # Configure logging (stderr only, as stdout is used for MCP protocol)
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        stream=sys.stderr,  # Important: use stderr to avoid interfering with stdout
+        stream=sys.stderr,
     )
+    _setup_file_logging(log_level, mode="stdio")
 
-    # Suppress update check in stdio mode
     async def run_stdio():
         """Run the MCP server in stdio mode."""
         try:
@@ -1705,7 +1742,7 @@ def init(
     path: Annotated[
         Path | None,
         typer.Argument(
-            help="Path to create configuration file. Defaults to ~/.config/mem0-open-mcp.yaml",
+            help="Path to create configuration file. Defaults to ~/.mem0-open-mcp/mem0-open-mcp.yaml",
         ),
     ] = None,
     force: Annotated[
@@ -1720,7 +1757,9 @@ def init(
         mem0-open-mcp init ./config.yaml
         mem0-open-mcp init --force
     """
-    default_path = Path.home() / ".config" / "mem0-open-mcp.yaml"
+    from mem0_server.config.loader import MEM0_HOME
+
+    default_path = MEM0_HOME / "mem0-open-mcp.yaml"
     target_path = path if path else default_path
 
     if target_path.exists() and not force:

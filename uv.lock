@@ -1351,7 +1351,7 @@ wheels = [
 
 [[package]]
 name = "mem0-open-mcp"
-version = "0.2.6"
+version = "0.2.7"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -1359,6 +1359,7 @@ dependencies = [
     { name = "langchain-neo4j" },
     { name = "mcp" },
     { name = "mem0ai" },
+    { name = "ollama" },
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -1408,6 +1409,7 @@ requires-dist = [
     { name = "mcp", specifier = ">=1.0.0" },
     { name = "mem0ai", specifier = ">=1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
+    { name = "ollama", specifier = ">=0.4.0" },
     { name = "ollama", marker = "extra == 'ollama'", specifier = ">=0.4.0" },
     { name = "pinecone", marker = "extra == 'pinecone'", specifier = ">=5.0.0" },
     { name = "psutil", specifier = ">=6.0.0" },
