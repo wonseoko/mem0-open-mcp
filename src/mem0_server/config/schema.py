@@ -306,6 +306,10 @@ class ServerConfig(BaseModel):
     log_level: Literal["debug", "info", "warning", "error"] = Field(
         default="info", description="Logging level"
     )
+    performance_logging: bool = Field(
+        default=False,
+        description="Enable per-request performance logging (tool name, duration, status)",
+    )
 
 
 # =============================================================================

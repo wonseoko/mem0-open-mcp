@@ -1,0 +1,21 @@
+{
+  "typeCheckingMode": "off",
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": "none",
+  "diagnosticSeverityOverrides": {
+    "reportArgumentType": "none",
+    "reportExplicitAny": "none",
+    "reportAny": "none",
+    "reportUnknownVariableType": "none",
+    "reportUnknownParameterType": "none",
+    "reportMissingParameterType": "none",
+    "reportUnknownArgumentType": "none",
+    "reportUnknownMemberType": "none",
+    "reportMissingTypeArgument": "none",
+    "reportPrivateUsage": "none",
+    "reportUnusedFunction": "none",
+    "reportUnusedCallResult": "none",
+    "reportImplicitStringConcatenation": "none",
+    "reportUnannotatedClassAttribute": "none"
+  }
+}

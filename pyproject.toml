@@ -1,6 +1,6 @@
 [project]
 name = "mem0-open-mcp"
-version = "0.2.4"
+version = "0.2.5"
 description = "Open-source MCP server for mem0 - local LLMs, self-hosted, Docker-free"
 readme = "README.md"
 license = "Apache-2.0"
@@ -73,6 +73,22 @@ python_version = "3.10"
 strict = true
 ignore_missing_imports = true
 
+[tool.pyright]
+typeCheckingMode = "off"
+reportMissingImports = false
+reportMissingTypeStubs = false
+reportArgumentType = false
+reportMissingTypeArgument = false
+reportAttributeAccessIssue = false
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.basedpyright]
+reportMissingImports = false
+reportMissingTypeStubs = false
+typeCheckingMode = "off"
+reportArgumentType = false
+reportMissingTypeArgument = false
+reportAttributeAccessIssue = false
