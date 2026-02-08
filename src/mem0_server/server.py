@@ -74,7 +74,6 @@ def _create_perf_logged_tool(func: Callable, tool_name: str, config: Mem0ServerC
             uid = user_id_var.get(None) or config.server.user_id
 
             log_parts = [
-                f"[Perf] {tool_name}",
                 f"user={uid}",
                 f"time={elapsed_ms:.1f}ms",
                 f"status={status}",
@@ -82,7 +81,8 @@ def _create_perf_logged_tool(func: Callable, tool_name: str, config: Mem0ServerC
             if error_msg:
                 log_parts.append(f"error={error_msg}")
 
-            perf_logger.info(" | ".join(log_parts))
+            tag = tool_name.replace("_memories", "").replace("_memory", "").replace("_all", "_all")
+            perf_logger.info(f"[{tag}] " + " | ".join(log_parts))
 
     return wrapper
 
@@ -163,14 +163,14 @@ class MCPServerManager:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             uid = user_id_var.get(None) or self.config.server.user_id
             log_parts = [
-                f"[Perf] {tool_name}",
                 f"user={uid}",
                 f"time={elapsed_ms:.1f}ms",
                 f"status={status}",
             ]
             if error_msg:
                 log_parts.append(f"error={error_msg[:100]}")
-            perf_logger.info(" | ".join(log_parts))
+            tag = tool_name.replace("_memories", "").replace("_memory", "")
+            perf_logger.info(f"[{tag}] " + " | ".join(log_parts))
 
         @self._mcp.tool(
             description="Add a new memory. Called when user shares information about themselves, "
@@ -476,14 +476,14 @@ class MCPServerManagerStdio:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             uid = user_id_var.get(None) or self.config.server.user_id
             log_parts = [
-                f"[Perf] {tool_name}",
                 f"user={uid}",
                 f"time={elapsed_ms:.1f}ms",
                 f"status={status}",
             ]
             if error_msg:
                 log_parts.append(f"error={error_msg[:100]}")
-            perf_logger.info(" | ".join(log_parts))
+            tag = tool_name.replace("_memories", "").replace("_memory", "")
+            perf_logger.info(f"[{tag}] " + " | ".join(log_parts))
 
         @self._mcp.tool(
             description="Add a new memory. Called when user shares information about themselves, "

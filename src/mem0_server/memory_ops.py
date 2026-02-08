@@ -46,14 +46,45 @@ async def add_memory_with_profiling(
     def _log_step(step: str, step_start: float, **extras: Any) -> None:
         elapsed_ms = (time.perf_counter() - step_start) * 1000
         log_parts = [
-            "[Perf] add_memories",
             f"user={user_id}",
             f"step={step}",
             f"time={elapsed_ms:.1f}ms",
         ]
         for key, value in extras.items():
             log_parts.append(f"{key}={value}")
-        perf_logger.info(" | ".join(log_parts))
+        perf_logger.info("[add] " + " | ".join(log_parts))
+
+    def _log_request(input_text: Any) -> None:
+        if isinstance(input_text, str):
+            clean = input_text.replace("\n", " ").replace("\t", " ")
+            preview = clean[:80] + "..." if len(clean) > 80 else clean
+        elif isinstance(input_text, list):
+            preview = f"[{len(input_text)} messages]"
+        else:
+            preview = f"[{type(input_text).__name__}]"
+        perf_logger.info(f"[add] user={user_id} | request: {preview}")
+
+    def _log_facts(facts: list[str]) -> None:
+        if not facts:
+            return
+        truncated = [f[:50] + "..." if len(f) > 50 else f for f in facts[:5]]
+        perf_logger.info(f"[add] user={user_id} | facts_preview={truncated}")
+
+    def _log_actions(memories: list[dict]) -> None:
+        if not memories:
+            return
+        summary = {"ADD": 0, "UPDATE": 0, "DELETE": 0}
+        for m in memories:
+            event = m.get("event", "")
+            if event in summary:
+                summary[event] += 1
+        parts = [f"{k}={v}" for k, v in summary.items() if v > 0]
+        if parts:
+            perf_logger.info(f"[add] user={user_id} | actions: {', '.join(parts)}")
+        for m in memories[:3]:
+            text = m.get("memory", "")[:60]
+            event = m.get("event", "")
+            perf_logger.info(f"[add] user={user_id} |   {event}: {text}...")
 
     processed_metadata, effective_filters = _build_filters_and_metadata(
         user_id=user_id,
@@ -73,6 +104,8 @@ async def add_memory_with_profiling(
         )
     else:
         messages = parse_vision_messages(messages)
+
+    _log_request(text)
 
     fact_start = time.perf_counter()
     parsed_messages = parse_messages(messages)
@@ -110,6 +143,7 @@ async def add_memory_with_profiling(
         new_retrieved_facts = []
 
     _log_step("fact_extraction", fact_start, facts=len(new_retrieved_facts))
+    _log_facts(new_retrieved_facts)
 
     embed_start = time.perf_counter()
     new_message_embeddings: dict[str, Any] = {}
@@ -272,6 +306,7 @@ async def add_memory_with_profiling(
             logger.error(f"Error awaiting memory task (profiling): {e}")
 
     _log_step("vector_insert", insert_start, inserted=len(returned_memories))
+    _log_actions(returned_memories)
 
     graph_start = time.perf_counter()
     graph_relations = []
@@ -287,9 +322,7 @@ async def add_memory_with_profiling(
     _log_step("graph", graph_start, relations=len(graph_relations))
 
     total_ms = (time.perf_counter() - total_start) * 1000
-    perf_logger.info(
-        f"[Perf] add_memories | user={user_id} | total={total_ms:.1f}ms | status=success"
-    )
+    perf_logger.info(f"[add] user={user_id} | total={total_ms:.1f}ms | status=success")
 
     if memory_client.enable_graph:
         return {"results": returned_memories, "relations": graph_relations}
@@ -395,7 +428,36 @@ async def delete_all_memories_op(
     memory_client: Any,
     user_id: str,
     config: Mem0ServerConfig,
-) -> None:
-    """Delete all memories for the user."""
+    use_individual_delete: bool = False,
+) -> int:
+    """Delete all memories for the user.
+
+    Args:
+        memory_client: The memory client instance.
+        user_id: The user ID to delete memories for.
+        config: The server configuration.
+        use_individual_delete: If True, fetch all memories and delete individually.
+            This is a workaround for mem0's delete_all() bug that resets the
+            entire collection instead of just the user's memories.
+
+    Returns:
+        Number of memories deleted (only when use_individual_delete=True).
+    """
     _ = config
-    await memory_client.delete_all(user_id=user_id)
+    if use_individual_delete:
+        # Workaround for mem0 delete_all() bug - fetch and delete individually
+        all_memories = await memory_client.get_all(user_id=user_id)
+        results = all_memories.get("results", []) if all_memories else []
+        deleted_count = 0
+        for memory in results:
+            memory_id = memory.get("id")
+            if memory_id:
+                try:
+                    await memory_client.delete(memory_id)
+                    deleted_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to delete memory {memory_id}: {e}")
+        return deleted_count
+    else:
+        await memory_client.delete_all(user_id=user_id)
+        return -1  # Unknown count when using bulk delete

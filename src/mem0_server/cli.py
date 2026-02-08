@@ -69,9 +69,10 @@ def _setup_file_logging(log_level: str = "info", mode: str = "server") -> Path |
         backupCount=5,
         encoding="utf-8",
     )
-    perf_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+    perf_handler.setFormatter(logging.Formatter("%(asctime)s  %(message)s"))
     perf_logger.addHandler(perf_handler)
     perf_logger.setLevel(logging.INFO)
+    perf_logger.propagate = False
 
     return log_file
 
@@ -573,10 +574,11 @@ async def _run_memory_tests_async_impl(
         # 5. Cleanup remaining test data (with retry verification) - involves Vector Store
         console.print("  [dim]5. Cleaning up test data...[/dim]", end=" ")
         cleanup_start = time.perf_counter()
-        await delete_all_memories_op(
+        deleted_count = await delete_all_memories_op(
             memory_client=memory,
             user_id=test_user_id,
             config=config,
+            use_individual_delete=True,
         )
         cleaned = False
         for attempt in range(max_retries):
