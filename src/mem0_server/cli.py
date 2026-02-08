@@ -1618,23 +1618,59 @@ def update(
     try:
         import shutil
 
-        # Detect package manager: prefer uv if available
         uv_path = shutil.which("uv")
+        pip_path = shutil.which("pip")
+        install_method = None
+        cmd = None
 
         if uv_path:
-            # Use uv
-            console.print("  [dim]Using uv...[/dim]")
-            cmd = [uv_path, "pip", "install", "--upgrade", "mem0-open-mcp"]
-            if force:
-                cmd.append("--force-reinstall")
-            pkg_manager = "uv"
-        else:
-            # Fallback to pip
-            console.print("  [dim]Using pip...[/dim]")
-            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "mem0-open-mcp"]
-            if force:
-                cmd.append("--force-reinstall")
-            pkg_manager = "pip"
+            uv_tool_list = subprocess.run(
+                [uv_path, "tool", "list"],
+                capture_output=True,
+                text=True,
+            )
+            if "mem0-open-mcp" in uv_tool_list.stdout:
+                install_method = "uv-tool"
+                cmd = [uv_path, "tool", "upgrade", "mem0-open-mcp"]
+                if force:
+                    cmd.append("--force")
+            else:
+                uv_pip_list = subprocess.run(
+                    [uv_path, "pip", "list"],
+                    capture_output=True,
+                    text=True,
+                )
+                if "mem0-open-mcp" in uv_pip_list.stdout:
+                    install_method = "uv-pip"
+                    cmd = [uv_path, "pip", "install", "--upgrade", "mem0-open-mcp"]
+                    if force:
+                        cmd.append("--force-reinstall")
+
+        if not install_method:
+            pip_list = subprocess.run(
+                [sys.executable, "-m", "pip", "list"],
+                capture_output=True,
+                text=True,
+            )
+            if "mem0-open-mcp" in pip_list.stdout:
+                install_method = "pip"
+                cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "mem0-open-mcp"]
+                if force:
+                    cmd.append("--force-reinstall")
+
+        if not install_method:
+            if uv_path:
+                install_method = "uv-tool"
+                cmd = [uv_path, "tool", "install", "mem0-open-mcp"]
+            elif pip_path:
+                install_method = "pip"
+                cmd = [sys.executable, "-m", "pip", "install", "mem0-open-mcp"]
+            else:
+                console.print("[red]✗ No package manager found (uv or pip)[/red]")
+                raise typer.Exit(1)
+
+        console.print(f"  [dim]Detected install method: {install_method}[/dim]")
+        console.print(f"  [dim]Running: {' '.join(cmd)}[/dim]\n")
 
         result = subprocess.run(
             cmd,
@@ -1646,7 +1682,6 @@ def update(
             console.print(f"[green]✓ Successfully upgraded to {latest}![/green]")
             console.print("\n[dim]Restart the server to use the new version.[/dim]")
 
-            # Update cache
             try:
                 UPDATE_CHECK_CACHE.parent.mkdir(parents=True, exist_ok=True)
                 UPDATE_CHECK_CACHE.write_text(
@@ -1662,21 +1697,19 @@ def update(
         else:
             console.print(f"[red]✗ Upgrade failed[/red]")
             if result.stderr:
-                console.print(f"[dim]{result.stderr}[/dim]")
-            # Suggest alternative
-            alt_cmd = (
-                "pip install --upgrade mem0-open-mcp"
-                if pkg_manager == "uv"
-                else "uv pip install --upgrade mem0-open-mcp"
-            )
-            console.print(f"\n[dim]Try: {alt_cmd}[/dim]")
+                console.print(f"[dim]{result.stderr[:500]}[/dim]")
+            if result.stdout:
+                console.print(f"[dim]{result.stdout[:500]}[/dim]")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]✗ Error during upgrade: {e}[/red]")
         console.print("\n[dim]Try manually:[/dim]")
-        console.print("[dim]  pip install --upgrade mem0-open-mcp[/dim]")
+        console.print("[dim]  uv tool upgrade mem0-open-mcp[/dim]")
         console.print("[dim]  uv pip install --upgrade mem0-open-mcp[/dim]")
+        console.print("[dim]  pip install --upgrade mem0-open-mcp[/dim]")
         raise typer.Exit(1)
 
 
