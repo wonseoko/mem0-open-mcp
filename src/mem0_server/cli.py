@@ -308,207 +308,69 @@ def _run_connectivity_tests(config: Mem0ServerConfig) -> bool:
 
 def _run_memory_tests(config: Mem0ServerConfig, custom_message: str | None = None) -> bool:
     """Run actual mem0 memory add/search tests."""
-    import os
-    import time
-    import uuid
+    import asyncio
 
-    console.print("[bold]Running memory tests...[/bold]\n")
-
-    test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
-    default_message = "Alice is a software engineer at TechCorp. She knows Bob who is a data scientist at DataLab. They collaborate on AI projects."
-    test_memory_text = custom_message if custom_message else default_message
-    max_retries = 20
-    retry_interval = 0.5
-
-    # Timing results storage
-    timings: dict[str, float] = {}
-
-    console.print(f"  [dim]Test message:[/dim]")
-    console.print(f'    [italic]"{test_memory_text}"[/italic]\n')
-
-    try:
-        console.print("  [dim]Initializing mem0 client...[/dim]", end=" ")
-        init_start = time.perf_counter()
-        os.environ["MEM0_TELEMETRY"] = "false"
-        from mem0 import Memory
-
-        mem0_config = config.to_mem0_config()
-        memory = Memory.from_config(mem0_config)
-        timings["init"] = time.perf_counter() - init_start
-        console.print(f"[green]✓[/green] [dim]({timings['init']:.2f}s)[/dim]")
-
-        # 1. Add memory (involves LLM + Embedder + Vector Store)
-        console.print("  [dim]1. Adding test memory...[/dim]", end=" ")
-        add_start = time.perf_counter()
-        add_result = memory.add(test_memory_text, user_id=test_user_id)
-        timings["add"] = time.perf_counter() - add_start
-        memory_id = None
-        if add_result and add_result.get("results") and len(add_result["results"]) > 0:
-            first_result = add_result["results"][0]
-            memory_id = first_result.get("id") if first_result else None
-            if memory_id:
-                console.print(
-                    f"[green]✓ Added (id: {memory_id[:8]}...)[/green] [dim]({timings['add']:.2f}s)[/dim]"
-                )
-            else:
-                console.print(
-                    f"[yellow]⚠ No memory extracted by LLM[/yellow] [dim]({timings['add']:.2f}s)[/dim]"
-                )
-        else:
-            console.print(
-                f"[yellow]⚠ No memory extracted by LLM[/yellow] [dim]({timings['add']:.2f}s)[/dim]"
-            )
-            console.print(f"    [dim]add_result: {add_result}[/dim]")
-
-        # 2. List memories (with retry) - involves Vector Store
-        console.print("  [dim]2. Listing memories...[/dim]", end=" ")
-        list_start = time.perf_counter()
-        stored_count = 0
-        list_result = None
-        for attempt in range(max_retries):
-            list_result = memory.get_all(user_id=test_user_id)
-            if list_result and list_result.get("results"):
-                stored_count = len(list_result["results"])
-                if not memory_id and stored_count > 0:
-                    memory_id = list_result["results"][0].get("id")
-                break
-            if attempt < max_retries - 1:
-                time.sleep(retry_interval)
-        timings["list"] = time.perf_counter() - list_start
-
-        if stored_count > 0:
-            console.print(
-                f"[green]✓ Found {stored_count} memory(s)[/green] [dim]({timings['list']:.2f}s)[/dim]"
-            )
-            # Show extracted memories
-            if list_result and list_result.get("results"):
-                for i, mem in enumerate(list_result["results"][:5]):
-                    mem_text = mem.get("memory", "")[:50]
-                    console.print(f"       [dim]{i + 1}. {mem_text}...[/dim]")
-        else:
-            console.print(
-                f"[red]✗ Memory not stored (waited 10s)[/red] [dim]({timings['list']:.2f}s)[/dim]"
-            )
-            return False
-
-        # 2b. Check graph store (if enabled)
-        if hasattr(memory, "enable_graph") and memory.enable_graph:
-            console.print("  [dim]   Graph store...[/dim]", end=" ")
-            if list_result and list_result.get("relations") is not None:
-                relations = list_result.get("relations", [])
-                relations_count = len(relations)
-                console.print(f"[green]✓ Enabled ({relations_count} relation(s))[/green]")
-                # Show extracted relations
-                for rel in relations[:5]:
-                    src = rel.get("source", "?")
-                    r = rel.get("relationship", "?")
-                    tgt = rel.get("target", rel.get("destination", "?"))
-                    console.print(f"       [dim]• {src} --[{r}]--> {tgt}[/dim]")
-            else:
-                console.print("[yellow]⚠ Enabled but no relations returned[/yellow]")
-
-        # 3. Search memories - involves Embedder + Vector Store
-        console.print("  [dim]3. Searching memories...[/dim]", end=" ")
-        search_start = time.perf_counter()
-        search_result = memory.search("test memory verification", user_id=test_user_id, limit=5)
-        timings["search"] = time.perf_counter() - search_start
-        if search_result and search_result.get("results"):
-            console.print(
-                f"[green]✓ Found {len(search_result['results'])} result(s)[/green] [dim]({timings['search']:.2f}s)[/dim]"
-            )
-        else:
-            console.print(
-                f"[yellow]⚠ No search results (indexing may be delayed)[/yellow] [dim]({timings['search']:.2f}s)[/dim]"
-            )
-
-        # 4. Delete single memory (with retry verification) - involves Vector Store
-        console.print("  [dim]4. Deleting single memory...[/dim]", end=" ")
-        delete_start = time.perf_counter()
-        if memory_id:
-            memory.delete(memory_id)
-            # Verify deletion
-            deleted = False
-            for attempt in range(max_retries):
-                list_result = memory.get_all(user_id=test_user_id)
-                results = list_result.get("results", []) if list_result else []
-                if not any(m.get("id") == memory_id for m in results):
-                    deleted = True
-                    break
-                if attempt < max_retries - 1:
-                    time.sleep(retry_interval)
-            timings["delete"] = time.perf_counter() - delete_start
-
-            if deleted:
-                console.print(
-                    f"[green]✓ Deleted (id: {memory_id[:8]}...)[/green] [dim]({timings['delete']:.2f}s)[/dim]"
-                )
-            else:
-                console.print(
-                    f"[yellow]⚠ Delete called but not confirmed after 10s[/yellow] [dim]({timings['delete']:.2f}s)[/dim]"
-                )
-        else:
-            timings["delete"] = time.perf_counter() - delete_start
-            console.print(
-                f"[yellow]⚠ Skipped (no memory_id)[/yellow] [dim]({timings['delete']:.2f}s)[/dim]"
-            )
-
-        # 5. Cleanup remaining test data (with retry verification) - involves Vector Store
-        console.print("  [dim]5. Cleaning up test data...[/dim]", end=" ")
-        cleanup_start = time.perf_counter()
-        memory.delete_all(user_id=test_user_id)
-        # Verify cleanup
-        cleaned = False
-        for attempt in range(max_retries):
-            list_result = memory.get_all(user_id=test_user_id)
-            results = list_result.get("results", []) if list_result else []
-            if len(results) == 0:
-                cleaned = True
-                break
-            if attempt < max_retries - 1:
-                time.sleep(retry_interval)
-        timings["cleanup"] = time.perf_counter() - cleanup_start
-
-        if cleaned:
-            console.print(f"[green]✓ Cleaned[/green] [dim]({timings['cleanup']:.2f}s)[/dim]")
-        else:
-            console.print(
-                f"[yellow]⚠ Cleanup called but not confirmed after {max_retries}s[/yellow] [dim]({timings['cleanup']:.2f}s)[/dim]"
-            )
-
-        console.print()
-
-        # Print timing summary
-        _print_timing_summary(timings, config)
-
-        console.print("[bold green]All memory tests passed![/bold green]\n")
-        return True
-
-    except Exception as e:
-        console.print(f"[red]✗ Failed: {e}[/red]")
-        console.print()
-        console.print(
-            "[bold red]Memory test failed. Check your LLM/Embedder/VectorStore configuration.[/bold red]\n"
+    return asyncio.run(
+        _run_memory_tests_async_impl(
+            config,
+            custom_message,
+            header="[bold]Running memory tests...[/bold]\n",
+            init_label="Initializing mem0 client",
+            success_label="All memory tests passed!",
+            failure_label="Memory test failed. Check your LLM/Embedder/VectorStore configuration.",
         )
-        return False
+    )
 
 
 def _run_memory_tests_async(config: Mem0ServerConfig, custom_message: str | None = None) -> bool:
     """Run mem0 memory tests using AsyncMemory."""
     import asyncio
 
-    return asyncio.run(_run_memory_tests_async_impl(config, custom_message))
+    return asyncio.run(
+        _run_memory_tests_async_impl(
+            config,
+            custom_message,
+            header="[bold]Running async memory tests...[/bold]\n",
+            init_label="Initializing AsyncMemory client",
+            success_label="All async memory tests passed!",
+            failure_label="Async memory test failed. Check your LLM/Embedder/VectorStore configuration.",
+        )
+    )
 
 
 async def _run_memory_tests_async_impl(
-    config: Mem0ServerConfig, custom_message: str | None = None
+    config: Mem0ServerConfig,
+    custom_message: str | None = None,
+    header: str = "[bold]Running async memory tests...[/bold]\n",
+    init_label: str = "Initializing AsyncMemory client",
+    success_label: str = "All async memory tests passed!",
+    failure_label: str = "Async memory test failed. Check your LLM/Embedder/VectorStore configuration.",
 ) -> bool:
     """Async implementation of memory tests."""
     import asyncio
     import os
+    import sys
     import time
     import uuid
 
-    console.print("[bold]Running async memory tests...[/bold]\n")
+    from mem0_server.memory_ops import (
+        add_memory_op,
+        delete_all_memories_op,
+        delete_memory_op,
+        list_memories_op,
+        search_memory_op,
+    )
+
+    # Setup performance logging if enabled
+    perf_handler = None
+    if config.server.performance_logging:
+        perf_logger = logging.getLogger("mem0_server.performance")
+        perf_logger.setLevel(logging.INFO)
+        perf_handler = logging.StreamHandler(sys.stderr)
+        perf_handler.setFormatter(logging.Formatter("%(message)s"))
+        perf_logger.addHandler(perf_handler)
+
+    console.print(header)
 
     test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
     default_message = "Alice is a software engineer at TechCorp. She knows Bob who is a data scientist at DataLab. They collaborate on AI projects."
@@ -523,7 +385,7 @@ async def _run_memory_tests_async_impl(
     console.print(f'    [italic]"{test_memory_text}"[/italic]\n')
 
     try:
-        console.print("  [dim]Initializing AsyncMemory client...[/dim]", end=" ")
+        console.print(f"  [dim]{init_label}...[/dim]", end=" ")
         init_start = time.perf_counter()
         os.environ["MEM0_TELEMETRY"] = "false"
         from mem0 import AsyncMemory
@@ -536,7 +398,13 @@ async def _run_memory_tests_async_impl(
         # 1. Add memory (involves LLM + Embedder + Vector Store)
         console.print("  [dim]1. Adding test memory...[/dim]", end=" ")
         add_start = time.perf_counter()
-        add_result = await memory.add(test_memory_text, user_id=test_user_id)
+        add_result = await add_memory_op(
+            memory_client=memory,
+            text=test_memory_text,
+            user_id=test_user_id,
+            metadata=None,
+            config=config,
+        )
         timings["add"] = time.perf_counter() - add_start
         memory_id = None
         if add_result and add_result.get("results") and len(add_result["results"]) > 0:
@@ -562,7 +430,11 @@ async def _run_memory_tests_async_impl(
         stored_count = 0
         list_result = None
         for attempt in range(max_retries):
-            list_result = await memory.get_all(user_id=test_user_id)
+            list_result = await list_memories_op(
+                memory_client=memory,
+                user_id=test_user_id,
+                config=config,
+            )
             if list_result and list_result.get("results"):
                 stored_count = len(list_result["results"])
                 if not memory_id and stored_count > 0:
@@ -605,8 +477,12 @@ async def _run_memory_tests_async_impl(
         # 3. Search memories - involves Embedder + Vector Store
         console.print("  [dim]3. Searching memories...[/dim]", end=" ")
         search_start = time.perf_counter()
-        search_result = await memory.search(
-            "test memory verification", user_id=test_user_id, limit=5
+        search_result = await search_memory_op(
+            memory_client=memory,
+            query="test memory verification",
+            user_id=test_user_id,
+            limit=5,
+            config=config,
         )
         timings["search"] = time.perf_counter() - search_start
         if search_result and search_result.get("results"):
@@ -622,10 +498,18 @@ async def _run_memory_tests_async_impl(
         console.print("  [dim]4. Deleting single memory...[/dim]", end=" ")
         delete_start = time.perf_counter()
         if memory_id:
-            await memory.delete(memory_id)
+            await delete_memory_op(
+                memory_client=memory,
+                memory_id=memory_id,
+                config=config,
+            )
             deleted = False
             for attempt in range(max_retries):
-                list_result = await memory.get_all(user_id=test_user_id)
+                list_result = await list_memories_op(
+                    memory_client=memory,
+                    user_id=test_user_id,
+                    config=config,
+                )
                 results = list_result.get("results", []) if list_result else []
                 if not any(m.get("id") == memory_id for m in results):
                     deleted = True
@@ -651,10 +535,18 @@ async def _run_memory_tests_async_impl(
         # 5. Cleanup remaining test data (with retry verification) - involves Vector Store
         console.print("  [dim]5. Cleaning up test data...[/dim]", end=" ")
         cleanup_start = time.perf_counter()
-        await memory.delete_all(user_id=test_user_id)
+        await delete_all_memories_op(
+            memory_client=memory,
+            user_id=test_user_id,
+            config=config,
+        )
         cleaned = False
         for attempt in range(max_retries):
-            list_result = await memory.get_all(user_id=test_user_id)
+            list_result = await list_memories_op(
+                memory_client=memory,
+                user_id=test_user_id,
+                config=config,
+            )
             results = list_result.get("results", []) if list_result else []
             if len(results) == 0:
                 cleaned = True
@@ -675,15 +567,23 @@ async def _run_memory_tests_async_impl(
         # Print timing summary
         _print_timing_summary(timings, config)
 
-        console.print("[bold green]All async memory tests passed![/bold green]\n")
+        console.print(f"[bold green]{success_label}[/bold green]\n")
+
+        # Cleanup perf handler
+        if perf_handler:
+            perf_logger.removeHandler(perf_handler)
+
         return True
 
     except Exception as e:
         console.print(f"[red]✗ Failed: {e}[/red]")
         console.print()
-        console.print(
-            "[bold red]Async memory test failed. Check your LLM/Embedder/VectorStore configuration.[/bold red]\n"
-        )
+        console.print(f"[bold red]{failure_label}[/bold red]\n")
+
+        # Cleanup perf handler
+        if perf_handler:
+            perf_logger.removeHandler(perf_handler)
+
         return False
 
 
@@ -692,7 +592,6 @@ def _run_profiling_tests(config: Mem0ServerConfig, custom_message: str | None = 
     import os
     import time
     import json
-    from rich.table import Table
 
     console.print("[bold]Running component profiling...[/bold]\n")
 
@@ -820,6 +719,7 @@ def _run_profiling_tests(config: Mem0ServerConfig, custom_message: str | None = 
                 ],
                 response_format={"type": "json_object"},
             )
+            _ = update_response
 
             timings["llm_update"] = time.perf_counter() - update_start
             console.print(f"[green]✓[/green] [dim]({timings['llm_update']:.2f}s)[/dim]")
