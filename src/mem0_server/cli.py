@@ -391,7 +391,9 @@ async def _run_memory_tests_async_impl(
     import sys
     import time
     import uuid
+    import warnings
 
+    from mem0_server.config.loader import MEM0_HOME, MEM0_LOGS_DIR
     from mem0_server.memory_ops import (
         add_memory_op,
         delete_all_memories_op,
@@ -399,6 +401,11 @@ async def _run_memory_tests_async_impl(
         list_memories_op,
         search_memory_op,
     )
+
+    # Suppress deprecation warnings from external libraries (mem0, backoff, langchain)
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="mem0")
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="backoff")
+    warnings.filterwarnings("ignore", category=UserWarning, module="langchain")
 
     # Setup performance logging if enabled
     perf_handler = None
@@ -410,6 +417,10 @@ async def _run_memory_tests_async_impl(
         perf_logger.addHandler(perf_handler)
 
     console.print(header)
+
+    config_file = MEM0_HOME / "mem0-open-mcp.yaml"
+    console.print(f"  [dim]Config:[/dim] {config_file}")
+    console.print(f"  [dim]Logs:[/dim]   {MEM0_LOGS_DIR}/\n")
 
     test_user_id = f"__test_user_{uuid.uuid4().hex[:8]}"
     default_message = "Alice is a software engineer at TechCorp. She knows Bob who is a data scientist at DataLab. They collaborate on AI projects."
@@ -1115,8 +1126,16 @@ def test(
         mem0-open-mcp test --message "John works at Google as a senior engineer."
         mem0-open-mcp test --profile  # Detailed component profiling
     """
+    import warnings
+
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="mem0")
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="backoff")
+    warnings.filterwarnings("ignore", category=UserWarning, module="langchain")
+
     loader = ConfigLoader(config_file)
     config = loader.load()
+
+    _setup_file_logging(config.server.log_level, mode="test")
 
     mode = "Async" if use_async else "Sync"
     if profile:
