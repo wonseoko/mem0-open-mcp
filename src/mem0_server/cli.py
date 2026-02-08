@@ -62,9 +62,8 @@ def _setup_file_logging(log_level: str = "info", mode: str = "server") -> Path |
     root_logger.addHandler(file_handler)
 
     perf_logger = logging.getLogger("mem0_server.performance")
-    perf_file = MEM0_LOGS_DIR / "performance.log"
     perf_handler = logging.handlers.RotatingFileHandler(
-        perf_file,
+        log_file,
         maxBytes=10 * 1024 * 1024,
         backupCount=5,
         encoding="utf-8",
