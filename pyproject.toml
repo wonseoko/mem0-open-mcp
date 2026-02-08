@@ -1,6 +1,6 @@
 [project]
 name = "mem0-open-mcp"
-version = "0.2.6"
+version = "0.2.7"
 description = "Open-source MCP server for mem0 - local LLMs, self-hosted, Docker-free"
 readme = "README.md"
 license = "Apache-2.0"
@@ -34,6 +34,7 @@ dependencies = [
     "langchain-neo4j>=0.1.0",
     "rank-bm25>=0.2.0",
     "psutil>=6.0.0",
+    "ollama>=0.4.0",
 ]
 
 [project.optional-dependencies]
